@@ -2578,7 +2578,7 @@ function bindInput() {
     if (e.code === 'KeyP') { if (mode === 'play') pause(); else if (mode === 'paused') resume(); }
     if (mode === 'play') {
       if (e.code === 'Space') { attack('bite'); e.preventDefault(); }
-      if (e.code === 'KeyE' || e.code === 'KeyF') attack('claw');
+      if (e.code === 'KeyF') attack('claw');           // E is turn-right now (Q / E rotate)
       if (e.code === 'KeyR' || e.code === 'ShiftLeft') doRoar();
       if (e.code.indexOf('Arrow') === 0) e.preventDefault();
     }
@@ -3142,8 +3142,11 @@ function update(dt) {
 
   // look
   P.ang += look.dx * SET.sens; look.dx = 0;
-  if (keys.ArrowLeft && !keys.KeyA) P.ang -= 2.2 * dt;
-  if (keys.ArrowRight && !keys.KeyD) P.ang += 2.2 * dt;
+  // keyboard turning: Q / E, or the left / right arrows (unless A / D is held to strafe)
+  let turn = 0;
+  if (keys.KeyQ || (keys.ArrowLeft && !keys.KeyA)) turn -= 1;
+  if (keys.KeyE || (keys.ArrowRight && !keys.KeyD)) turn += 1;
+  P.ang += turn * 2.2 * dt;
   P.dirX = Math.cos(P.ang); P.dirY = Math.sin(P.ang);
   P.planeX = -P.dirY * FOV; P.planeY = P.dirX * FOV;
 

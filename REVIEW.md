@@ -47,7 +47,7 @@ The expansion is a real step up: the ceiling-height rendering is correct, the fo
 - Paused / cleared / game-over screens draw the still scene once instead of every frame (battery).
 
 **Docs**
-- README and `index.html` listed controls the game never had (Q/E to turn, P to pause, left click = Bite, right click = Roar). They now match the code. "100% reachability audits" was claimed but didn't exist; **the editor now really does a reachability audit** (flood-fill from the spawn: exit, key and eggs, with key gates counted only if a key can be fetched first). The audio credit now names CC BY 3.0. The wrapper page lost an invalid `allow="pointer-lock"` and a misleading "(Esc)" label, and gained touch instructions.
+- README and `index.html` listed controls the game never had (Q/E to turn, P to pause, left click = Bite, right click = Roar). They now match the game. Two were implemented rather than dropped: **P pauses**, and **Q / E turn** (E used to claw, so Claw is now left click or F). "100% reachability audits" was claimed but didn't exist; **the editor now really does a reachability audit** (flood-fill from the spawn: exit, key and eggs, with key gates counted only if a key can be fetched first). The audio credit now names CC BY 3.0. The wrapper page lost an invalid `allow="pointer-lock"` and a misleading "(Esc)" label, and gained touch instructions.
 
 ## Tablet and touch controls
 
@@ -99,7 +99,7 @@ Round 1 IDs are in the appendix. **Fixed** = fixed in this pass; **Open** = stil
 | N5 | Med | Tree spawn test runs on a half-built map [V] | **Fixed** |
 | N6 | Med | Editor freezes the factory floors [R, then covered by test] | **Fixed** |
 | N7 | Low | Editor typing triggers game hotkeys; repeat swallowed [R, test] | **Fixed** |
-| N8 | Med | README and wrapper describe controls the game doesn't have [V] | **Fixed** |
+| N8 | Med | README and wrapper describe controls the game doesn't have (Q/E turn, P pause, mouse buttons) [V] | **Fixed** (Q/E and P implemented; the mouse-button rows corrected) |
 | N9 | Low | Palette text wrong; selected tile never highlighted; editor messages invisible | **Fixed** |
 | N10 | Low | README claims a reachability audit that didn't exist | **Fixed** (implemented) |
 | N11 | Low | Playtest carried old score and could set the best score | **Fixed** |

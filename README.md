@@ -51,9 +51,9 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 | Action | Keyboard / Mouse | Touch (phone & tablet) |
 | :--- | :--- | :--- |
 | **Move & Strafe** | `W`, `A`, `S`, `D` (`↑` / `↓` also walk) | Drag anywhere on the left half; a stick appears under your thumb |
-| **Turn Camera** | Mouse horizontal move, or `←` / `→` | Drag on the right half, sideways |
+| **Turn Camera** | Mouse horizontal move, or `Q` / `E` (`←` / `→` also turn) | Drag on the right half, sideways |
 | **Look Up / Down (Pitch)** | Mouse vertical move, `PageUp` / `PageDown`, `I` / `K` (`Home` to center) | Drag on the right half, up or down |
-| **Claw** (quick swipe) | Left Mouse Click, `F` or `E` | **Claw** button |
+| **Claw** (quick swipe) | Left Mouse Click or `F` | **Claw** button |
 | **Bite** (slow, strong) | Right Mouse Click or `Spacebar` | **Bite** button |
 | **Prehistoric Roar (Stun)** | `R` or `Shift` | **Roar** button |
 | **Pause / Level Editor** | `Escape` or `P` | **II** button (top left) |
