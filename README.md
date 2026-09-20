@@ -10,7 +10,8 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 
 ## 🌟 Features
 
-* **Pure Vanilla HTML5 / JS**: Zero external dependencies, zero bundlers, zero build steps. Just open `rex-rumble.html` in any modern web browser to play!
+* **Pure Vanilla HTML5 / JS**: Zero bundlers, zero build steps, and it works offline. Just open `rex-rumble.html` in any modern web browser to play! (The rounded *Fredoka* font is an optional web font loaded in the background when you're online; offline, the game uses your system font.)
+* **Touch controls for phones and tablets**: a floating walk stick under your left thumb, drag-to-look on the right (up and down too), and thumb-sized Claw / Bite / Roar buttons that scale with your screen. The level editor works with a finger too.
 * **2.5D Raycasting Engine with Dynamic Ceilings**:
   * **Custom Heights (`ceilH`)**: Levels range from standard cavern ceilings to soaring `2.8x` redwood forest canopies and `3.2x` monumental throne halls.
   * **Full Vertical Mouse & Touch Look**: Tilt your gaze up into the redwood canopy or down to the forest floor.
@@ -34,7 +35,7 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
   * Interactive grid painter directly in the browser (open via `Pause Menu` or `Title Screen`).
   * Real-time safety validation (ensures zero trees block 1-square passages or doors).
   * Texture pickers, ceiling height slider (`1.0x` to `4.0x`), entity counters, and 100% reachability audits.
-  * Auto-saves to `localStorage`, with one-click **Playtest**, **Export JSON**, **Import**, and **Reset Floor** to factory defaults.
+  * Saves the floors you change to `localStorage` (floors you haven't touched keep following updates to the game), with one-click **Playtest**, **Export JSON**, **Import**, and **Reset Floor** to factory defaults. Imports with a typo'd texture or an out-of-range ceiling height fall back to safe values instead of breaking the floor.
 
 ---
 
@@ -47,14 +48,18 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 
 ### Controls
 
-| Action | Keyboard / Mouse | Touch |
+| Action | Keyboard / Mouse | Touch (phone & tablet) |
 | :--- | :--- | :--- |
-| **Move & Strafe** | `W`, `A`, `S`, `D` or Arrow Keys | Left virtual joystick |
-| **Turn Camera** | Mouse horizontal move or `Q`, `E` | Right screen drag horizontal |
-| **Look Up / Down (Pitch)** | Mouse vertical move, `PageUp` / `PageDown`, `I` / `K` (`Home` to center) | Right screen drag vertical |
-| **Bite / Chomp Attack** | `Spacebar` or Left Mouse Click | Tap Chomp button |
-| **Prehistoric Roar (Stun)** | `R` or Right Mouse Click | Tap Roar button |
-| **Pause / Level Editor** | `Escape` or `P` | Tap Pause button |
+| **Move & Strafe** | `W`, `A`, `S`, `D` (`↑` / `↓` also walk) | Drag anywhere on the left half; a stick appears under your thumb |
+| **Turn Camera** | Mouse horizontal move, or `←` / `→` | Drag on the right half, sideways |
+| **Look Up / Down (Pitch)** | Mouse vertical move, `PageUp` / `PageDown`, `I` / `K` (`Home` to center) | Drag on the right half, up or down |
+| **Claw** (quick swipe) | Left Mouse Click, `F` or `E` | **Claw** button |
+| **Bite** (slow, strong) | Right Mouse Click or `Spacebar` | **Bite** button |
+| **Prehistoric Roar (Stun)** | `R` or `Shift` | **Roar** button |
+| **Pause / Level Editor** | `Escape` or `P` | **II** button (top left) |
+| **Music on / off** | `M` | Pause menu |
+
+The game picks touch or mouse controls from your device, and switches on the fly: touch a touch-screen laptop and the touch controls appear; move the mouse and they go away. If your browser blocks pointer lock (some embeds do), mouse-look is off, clicks still attack, and the arrow keys turn. On a tablet, landscape and the **Full Window** button on the web page give the biggest view.
 
 ---
 
@@ -69,7 +74,7 @@ The game includes a full level creation suite built directly into the engine:
 ---
 
 ## 📜 Audio Credits
-* Dinosaur Roar audio effect adapted from [BESTROFLMAN on FreeSound](https://freesound.org/people/BESTROFLMAN/sounds/212433/) under Creative Commons.
+* Dinosaur Roar audio effect adapted from [BESTROFLMAN on FreeSound](https://freesound.org/people/BESTROFLMAN/sounds/212433/), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 * Procedural synthesizers for bites, footstep stomps, chomp impact, and ambient soundtrack generated in real-time via the Web Audio API.
 
 ---

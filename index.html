@@ -169,6 +169,7 @@ body {
   inset: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
+  height: 100dvh !important;   /* tablets/phones: the visible height, not the height behind the browser bars */
   aspect-ratio: unset !important;
   border-radius: 0 !important;
   border: none !important;
@@ -323,24 +324,23 @@ body {
         id="gameFrame"
         class="game-frame"
         src="rex-rumble.html"
-        allow="autoplay; fullscreen; pointer-lock"
-        allowfullscreen
+        allow="autoplay; fullscreen"
         title="Rex Rumble Game"
       ></iframe>
       <button class="exit-full-btn" onclick="toggleFullWindow()">
-        ✕ Exit Full Window (Esc)
+        ✕ Exit Full Window
       </button>
     </div>
 
     <div class="game-toolbar">
-      <div class="game-hint">
-        <span>💡 Click inside the game to lock mouse pointer. Press</span> <kbd>Esc</kbd> <span>for Pause / Level Editor.</span>
+      <div class="game-hint" id="gameHint">
+        <span>💡 Click inside the game to lock the mouse pointer. Press</span> <kbd>Esc</kbd> <span>or</span> <kbd>P</kbd> <span>to pause, and to open the Level Editor.</span>
       </div>
       <div class="toolbar-buttons">
         <button id="toolbarExpandBtn" class="btn btn-secondary" onclick="toggleFullWindow()">
           <span>⛶</span> Full Window
         </button>
-        <button class="btn btn-secondary" onclick="requestBrowserFullscreen()">
+        <button id="fullscreenBtn" class="btn btn-secondary" onclick="requestBrowserFullscreen()">
           <span>🖥️</span> Fullscreen
         </button>
         <a href="rex-rumble.html" target="_blank" rel="noopener" class="btn btn-secondary">
@@ -359,8 +359,8 @@ body {
           <tr><th>Action</th><th>Key / Input</th></tr>
         </thead>
         <tbody>
-          <tr><td>Move & Strafe</td><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or Arrows</td></tr>
-          <tr><td>Turn Camera</td><td>Mouse movement or <kbd>Q</kbd> / <kbd>E</kbd></td></tr>
+          <tr><td>Move & Strafe</td><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> (or <kbd>↑</kbd> <kbd>↓</kbd> to walk)</td></tr>
+          <tr><td>Turn Camera</td><td>Mouse movement or <kbd>←</kbd> / <kbd>→</kbd></td></tr>
           <tr><td>Look Up / Down (Pitch)</td><td>Mouse vertical, <kbd>PgUp</kbd> / <kbd>PgDn</kbd>, <kbd>I</kbd> / <kbd>K</kbd></td></tr>
           <tr><td>Center View</td><td><kbd>Home</kbd></td></tr>
         </tbody>
@@ -374,10 +374,27 @@ body {
           <tr><th>Action</th><th>Key / Input</th></tr>
         </thead>
         <tbody>
-          <tr><td>Chomp Attack</td><td><kbd>Space</kbd> or Left Click</td></tr>
-          <tr><td>Prehistoric Roar (Stun)</td><td><kbd>R</kbd> or Right Click</td></tr>
+          <tr><td>Claw (quick swipe)</td><td>Left Click, <kbd>F</kbd> or <kbd>E</kbd></td></tr>
+          <tr><td>Bite (slow, strong)</td><td>Right Click or <kbd>Space</kbd></td></tr>
+          <tr><td>Roar (stuns nearby dinos)</td><td><kbd>R</kbd> or <kbd>Shift</kbd></td></tr>
           <tr><td>Pause / Level Editor</td><td><kbd>Esc</kbd> or <kbd>P</kbd></td></tr>
-          <tr><td>Collect Eggs</td><td>Walk over <kbd>$</kbd> eggs to unlock exit</td></tr>
+          <tr><td>Music on / off</td><td><kbd>M</kbd></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>📱 Touch (phone & tablet)</h3>
+      <table class="controls-table">
+        <thead>
+          <tr><th>Action</th><th>Touch</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Walk</td><td>Drag anywhere on the left half. A stick appears under your thumb.</td></tr>
+          <tr><td>Look around</td><td>Drag on the right half (up and down too)</td></tr>
+          <tr><td>Claw / Bite / Roar</td><td>The buttons at the bottom right</td></tr>
+          <tr><td>Pause / Level Editor</td><td>The <kbd>II</kbd> button, top left</td></tr>
+          <tr><td>Best view</td><td>Landscape, and tap <b>Full Window</b> above</td></tr>
         </tbody>
       </table>
     </div>
@@ -489,6 +506,18 @@ function requestBrowserFullscreen() {
     }
   }
 }
+
+// Touch devices: show touch instructions, and hide the Fullscreen button where the browser can't do element
+// fullscreen (iPhone). "Full Window" always works.
+(function () {
+  const coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  if (coarse) {
+    document.getElementById('gameHint').innerHTML =
+      '<span>💡 Drag the left side to walk, the right side to look. Tap <b>Full Window</b> for the biggest view, and turn to landscape.</span>';
+  }
+  const c = document.getElementById('gameContainer');
+  if (!c.requestFullscreen && !c.webkitRequestFullscreen) document.getElementById('fullscreenBtn').style.display = 'none';
+})();
 
 // Exit full window on Escape if triggered on parent window
 window.addEventListener('keydown', function (e) {

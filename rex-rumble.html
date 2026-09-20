@@ -6,7 +6,8 @@
 <title>Rex Rumble</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Optional font: loaded without blocking, so the game starts instantly even offline or on a bad network. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
 <style>
 :root{
   --deep:#0d1f18; --moss:#163324; --fern:#4fa657; --lime:#a8dd6a;
@@ -32,20 +33,24 @@ body{
 
 /* ---------- loading ---------- */
 #loading{position:absolute;inset:0;display:grid;place-content:center;gap:14px;text-align:center;
-  background:var(--deep);z-index:40;transition:opacity .35s}
+  background:var(--deep);z-index:40;transition:opacity .35s,visibility 0s}
+#loading.hide{transition:opacity .35s,visibility 0s linear .35s}
 #loading b{font-size:26px;font-weight:600}
 #loading span{color:#9fc4ab;font-size:15px}
-.hide{opacity:0;pointer-events:none}
+/* visibility:hidden (after the fade) also drops keyboard focus, so a hidden menu button can't be re-fired by Enter */
+.hide{opacity:0;pointer-events:none;visibility:hidden}
 
 /* ---------- overlay ---------- */
 #overlay{position:absolute;inset:0;z-index:30;display:grid;place-content:center;
   padding:24px;text-align:center;overflow:auto;
   background:radial-gradient(120% 90% at 50% 0%,#1d4230 0%,var(--deep) 62%);
-  transition:opacity .25s}
+  transition:opacity .25s,visibility 0s}
+#overlay.hide{transition:opacity .25s,visibility 0s linear .25s}
 .titlewrap{position:relative;display:inline-block;margin:0 auto}
 #ovTitle{font-size:clamp(46px,10vw,92px);font-weight:700;line-height:.94;margin:0;
   color:var(--egg);letter-spacing:-.02em;text-shadow:0 5px 0 #8a5a12,0 9px 24px rgba(0,0,0,.5)}
-.claws{position:absolute;inset:-14% -10%;pointer-events:none}
+/* an <svg> is a replaced element, so inset alone doesn't stretch it: give it an explicit box around the title */
+.claws{position:absolute;left:-10%;top:-14%;width:120%;height:128%;pointer-events:none}
 .claws path{fill:none;stroke:var(--bone);stroke-width:7;stroke-linecap:round;opacity:.92}
 #ovSub{margin:14px 0 0;color:#a9cbb4;font-size:clamp(15px,2.4vw,19px);font-weight:400}
 #ovBody{margin:22px auto 0;max-width:56ch}
@@ -72,20 +77,36 @@ body.touch .how p:not(.mob){display:none}
 @media (prefers-reduced-motion:reduce){.btn{transition:none}}
 
 /* ---------- touch controls ---------- */
-#touchzone{position:absolute;inset:0;z-index:10;display:none}
+body{-webkit-touch-callout:none}
+#touchzone{position:absolute;inset:0;z-index:10;display:none;touch-action:none}
 body.touch #touchzone{display:block}
-#pad{position:absolute;right:14px;bottom:14px;display:none;gap:10px;z-index:20;
-  align-items:flex-end}
-body.touch #pad{display:flex}
-.tbtn{width:74px;height:74px;border-radius:50%;border:3px solid var(--ink);
-  font-family:inherit;font-weight:600;font-size:14px;color:var(--ink);
-  background:var(--lime);box-shadow:0 4px 0 var(--ink)}
-#bBite{width:92px;height:92px;font-size:16px;background:var(--egg)}
-#bRoar{background:var(--flare);color:var(--bone)}
-#bPause{position:absolute;top:10px;left:10px;z-index:20;display:none;
-  width:42px;height:42px;border-radius:12px;border:3px solid var(--ink);
-  background:rgba(247,240,221,.9);color:var(--ink);font-size:17px;font-family:inherit}
+/* floating walk stick: appears under the left thumb wherever it lands */
+#stick{position:fixed;left:0;top:0;display:none;z-index:15;pointer-events:none;border-radius:50%;
+  border:3px solid rgba(247,240,221,.45);background:rgba(13,31,24,.28)}
+#stick.on{display:block}
+#stickKnob{position:absolute;left:50%;top:50%;width:44%;height:44%;margin:-22% 0 0 -22%;border-radius:50%;
+  background:rgba(247,240,221,.8);border:3px solid var(--ink)}
+/* thumb-arc button cluster (bottom-right), sized from the shorter screen side so it suits phones and tablets */
+#pad{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:14px;display:none;z-index:20;
+  grid-template-columns:auto auto;grid-template-areas:". roar" "claw bite";gap:10px 12px;
+  align-items:end;justify-items:end}
+body.touch #pad{display:grid}
+.tbtn{width:clamp(68px,12vmin,104px);height:clamp(68px,12vmin,104px);border-radius:50%;border:3px solid var(--ink);
+  font-family:inherit;font-weight:600;font-size:clamp(14px,2.4vmin,18px);color:var(--ink);
+  background:var(--lime);box-shadow:0 4px 0 var(--ink);touch-action:none;-webkit-touch-callout:none}
+.tbtn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+#bRoar{grid-area:roar;background:var(--flare);color:var(--bone)}
+#bClaw{grid-area:claw}
+#bBite{grid-area:bite;width:clamp(84px,15vmin,130px);height:clamp(84px,15vmin,130px);
+  font-size:clamp(16px,2.8vmin,20px);background:var(--egg)}
+#bPause{position:absolute;top:10px;left:max(10px,env(safe-area-inset-left,0px));z-index:20;display:none;
+  width:clamp(42px,7vmin,56px);height:clamp(42px,7vmin,56px);border-radius:12px;border:3px solid var(--ink);
+  background:rgba(247,240,221,.9);color:var(--ink);font-size:17px;font-family:inherit;touch-action:none}
 body.touch #bPause{display:block}
+#rotate{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:35;display:none;
+  padding:8px 16px;border-radius:999px;background:rgba(13,31,24,.88);color:var(--bone);font-size:14px;
+  pointer-events:none;white-space:nowrap}
+@media (orientation:portrait){body.touch #rotate{display:block}}
 
 /* ---------- Level Editor ---------- */
 #editorOverlay{position:fixed;inset:0;z-index:50;background:rgba(9,20,15,.96);
@@ -110,7 +131,8 @@ body.touch #bPause{display:block}
 
 .ed-main{display:flex;flex:1;overflow:hidden;padding:12px;gap:16px;justify-content:center}
 .ed-grid-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
-#edCanvas{background:#000;border:3px solid var(--ink);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.6);cursor:crosshair;image-rendering:pixelated}
+#edCanvas{background:#000;border:3px solid var(--ink);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.6);cursor:crosshair;image-rendering:pixelated;
+  touch-action:none;width:min(528px,100%);height:auto;aspect-ratio:1}
 .ed-status{font-size:13px;color:#a9cbb4;display:flex;justify-content:space-between;width:100%;max-width:530px}
 .ed-status .warn{color:#ff6b6b;font-weight:600}
 .ed-status .ok{color:var(--lime);font-weight:600}
@@ -125,6 +147,17 @@ body.touch #bPause{display:block}
 .ed-chip:hover{border-color:var(--lime);background:#173224}
 .ed-chip.active{border-color:var(--egg);background:#274a36;color:var(--egg);box-shadow:0 0 0 2px var(--egg)}
 .ed-chip .icon{font-size:15px;line-height:1;margin-bottom:2px}
+/* the editor script marks the picked tile with .selected (this rule was missing, so nothing lit up) */
+.ed-chip.selected{border-color:var(--egg);background:#274a36;color:var(--egg);box-shadow:0 0 0 2px var(--egg)}
+.ed-color-dot{width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,.45)}
+.ed-sym-badge{font-weight:700;font-size:13px;line-height:1}
+body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
+/* narrow screens (tablet portrait): stack the grid above the palette instead of clipping it */
+@media (max-width:920px){
+  .ed-main{flex-direction:column;align-items:center;overflow-y:auto}
+  .ed-grid-wrap{width:100%;max-width:560px;flex:none}
+  .ed-palette{width:100%;max-width:560px;overflow:visible;flex:none}
+}
 
 /* Import/Export Modal */
 #edModal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.75);display:none;place-content:center;padding:20px}
@@ -145,6 +178,8 @@ body.touch #bPause{display:block}
     <button id="bBite" class="tbtn">Bite</button>
   </div>
   <button id="bPause">II</button>
+  <div id="stick"><div id="stickKnob"></div></div>
+  <div id="rotate">↻ Turn your device sideways for a bigger view</div>
 
   <div id="overlay" class="hide">
     <div class="titlewrap">
@@ -1762,23 +1797,55 @@ const LEVELS=[
 // Pristine factory copy of all levels for editor reset
 const FACTORY_LEVELS = JSON.parse(JSON.stringify(LEVELS));
 
+/* Textures the engine really has. Anything else (a typo in an import, a hand-edited save) is
+   replaced by the floor's own value instead of crashing the renderer. */
+const FLOOR_TEXS = ['grass', 'water', 'ash', 'tile', 'wood', 'mud'];
+const CEIL_TEXS = ['canopy', 'cave', 'temple'];
+
+function padGrid(grid) {
+  const rows = [];
+  for (let y = 0; y < 24; y++) rows.push(String(grid[y] === undefined ? '' : grid[y]).padEnd(24, '.').slice(0, 24));
+  return rows;
+}
+
+/* A safe copy of a level definition (fields from `base` fill any gaps), or null if unusable. */
+function cleanLevel(L, base) {
+  if (!L || !Array.isArray(L.grid) || L.grid.length !== 24) return null;
+  const h = parseFloat(L.ceilH);
+  return {
+    name: typeof L.name === 'string' && L.name ? L.name.slice(0, 40) : base.name,
+    ceilH: isFinite(h) ? clamp(h, 1, 4) : base.ceilH,
+    sub: typeof L.sub === 'string' ? L.sub.slice(0, 80) : base.sub,
+    floor: FLOOR_TEXS.indexOf(L.floor) >= 0 ? L.floor : base.floor,
+    ceil: CEIL_TEXS.indexOf(L.ceil) >= 0 ? L.ceil : base.ceil,
+    boss: typeof L.boss === 'boolean' ? L.boss : !!base.boss,
+    grid: padGrid(L.grid)
+  };
+}
+
+function levelKey(L) {
+  return [L.name, L.ceilH, L.sub, L.floor, L.ceil, !!L.boss, L.grid.join('|')].join('~');
+}
+
 function loadSavedCustomLevels() {
   try {
     // Clear older versions so fresh organic layouts and doors take effect immediately
     ['rex_custom_levels', 'rex_custom_levels_v3', 'rex_custom_levels_v4'].forEach(function(k) {
       if (localStorage.getItem(k)) localStorage.removeItem(k);
     });
-    const raw = localStorage.getItem('rex_custom_levels_v5');
-    if (raw) {
-      const saved = JSON.parse(raw);
-      if (Array.isArray(saved) && saved.length === LEVELS.length) {
-        for (let i = 0; i < LEVELS.length; i++) {
-          if (saved[i] && Array.isArray(saved[i].grid) && saved[i].grid.length === 24) {
-            LEVELS[i] = saved[i];
-          }
-        }
-      }
+    // v6 keeps only the floors you actually changed (null = factory layout), so later layout updates
+    // still reach you. v5 saved every floor, which froze the factory layouts the first time the editor
+    // was opened: read it once, keep only real changes, and drop it.
+    let raw = localStorage.getItem('rex_custom_levels_v6'), migrated = false;
+    if (!raw) { raw = localStorage.getItem('rex_custom_levels_v5'); migrated = !!raw; }
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved)) return;
+    for (let i = 0; i < LEVELS.length && i < saved.length; i++) {
+      const c = cleanLevel(saved[i], FACTORY_LEVELS[i]);
+      if (c && levelKey(c) !== levelKey(FACTORY_LEVELS[i])) LEVELS[i] = c;
     }
+    if (migrated) { saveCustomLevelsToStorage(); localStorage.removeItem('rex_custom_levels_v5'); }
   } catch (e) {
     console.warn('Could not load custom levels from localStorage:', e);
   }
@@ -1786,7 +1853,9 @@ function loadSavedCustomLevels() {
 
 function saveCustomLevelsToStorage() {
   try {
-    localStorage.setItem('rex_custom_levels_v5', JSON.stringify(LEVELS));
+    const changed = LEVELS.map(function (L, i) { return levelKey(L) === levelKey(FACTORY_LEVELS[i]) ? null : L; });
+    if (changed.every(function (c) { return c === null; })) localStorage.removeItem('rex_custom_levels_v6');
+    else localStorage.setItem('rex_custom_levels_v6', JSON.stringify(changed));
   } catch (e) {
     console.warn('Could not save custom levels to localStorage:', e);
   }
@@ -1841,7 +1910,7 @@ function buildLevel(idx) {
     things: [],
     solids: [],
     seen: new Uint8Array(MW * MH),
-    floorTex: TEX[L.floor], ceilTex: TEX[L.ceil],
+    floorTex: TEX[L.floor] || TEX.grass, ceilTex: TEX[L.ceil] || TEX.canopy,
     isOutdoor: isOutdoor,
     doorTex: isOutdoor ? TEX.vinedoor : TEX.door,
     keyDoorTex: isOutdoor ? TEX.bonegate : TEX.keydoor,
@@ -1850,6 +1919,7 @@ function buildLevel(idx) {
     spawn: { x: 1.5, y: 1.5 }, exit: null, time: 0
   };
   const free = [];
+  const treeCells = [];   // trees go in after the whole grid is read: the clearance test looks at neighbouring cells
   for (let y = 0; y < MH; y++) {
     const row = L.grid[y];
     for (let x = 0; x < MW; x++) {
@@ -1880,13 +1950,16 @@ function buildLevel(idx) {
       else if (ch === 'm') spawnItem(w, 'meat', cx, cy);
       else if (ch === 'k') spawnItem(w, 'key', cx, cy);
       else if (ch === 's') spawnItem(w, 'star', cx, cy);
-      else if (ch === 'T') spawnTree(w, cx, cy);
+      else if (ch === 'T') treeCells.push([cx, cy]);
       else if (ch === 'E') {
         w.exit = { x: cx, y: cy, spr: 'exit', frame: 0, scale: 0.95, vOff: 0.02, kind: 'exit', alive: true };
         w.things.push(w.exit);
       } else free.push([cx, cy]);
     }
   }
+  // Now every wall and door is known, so a tree that would plug a 1-wide passage or a doorway is dropped
+  // (the same test the editor uses to flag it).
+  treeCells.forEach(function (p) { spawnTree(w, p[0], p[1]); });
   // scatter a little scenery on leftover floor
   const rnd = rngFrom(1000 + idx * 7);
   const decor = idx === 0 ? ['fern', 'stump', 'fern'] :
@@ -2294,6 +2367,7 @@ function initRoarAudio() {
 }
 
 function audioStart() {
+  initRoarAudio();            // start loading the roar now so the first roar isn't late
   if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
   const Ctor = window.AudioContext || window.webkitAudioContext;
   if (!Ctor) return;
@@ -2379,10 +2453,11 @@ const LEADLINE = [12, -1, 15, 12, 19, -1, 17, 15, 12, -1, 10, 12, 15, -1, 19, -1
 function musicTick() {
   if (!AC || !SET.music || mode !== 'play') return;
   const bpm = 118, spb = 60 / bpm / 2;
+  // After a pause or a hidden tab the clock has run on; skip the missed beats instead of scheduling them all at once.
+  if (nextNote < AC.currentTime) nextNote = AC.currentTime + 0.05;
   while (nextNote < AC.currentTime + 0.3) {
     const root = [55, 49, 43.65, 58.27, 51.91][curLevel % 5];
     const b = BASSLINE[step % BASSLINE.length];
-    const g = AC.createGain(); g.gain.value = 1;
     tone(root * Math.pow(2, b / 12), root * Math.pow(2, b / 12), spb * 0.85, 'triangle', 0.16,
       nextNote - AC.currentTime);
     const l = LEADLINE[step % LEADLINE.length];
@@ -2405,13 +2480,102 @@ let look = { dx: 0, dy: 0 };
 let joy = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 };
 let lookPtr = { id: -1, lx: 0, ly: 0 };
 let touchMode = false;
+let lockDenied = false, lockHinted = false;
+let stickEl = null, stickKnob = null;
+
+/* ---- pointer lock, with a fallback when the browser refuses it (iframes, some embeds, cooldown after Esc) ---- */
+function lockUnavailable() {
+  lockDenied = true;
+  if (!lockHinted && mode === 'play') { lockHinted = true; say('Mouse-look is blocked here. Click to attack, arrows to turn.'); }
+}
+function tryLock() {
+  if (touchMode) return;
+  if (!view || !view.requestPointerLock) { lockUnavailable(); return; }
+  lockDenied = false;
+  try {
+    const p = view.requestPointerLock();
+    if (p && p.catch) p.catch(lockUnavailable);      // current browsers return a promise that can reject
+  } catch (e) { lockUnavailable(); }
+}
+
+/* ---- touch vs mouse: decided by the primary pointer, then by what the player actually uses ---- */
+function detectTouch() {
+  try { if (window.matchMedia) return matchMedia('(pointer: coarse)').matches; } catch (e) { }
+  return 'ontouchstart' in window;
+}
+function releaseInputs() {                 // called when focus is lost, so keys/fingers can't stay "held"
+  for (const k in keys) keys[k] = false;
+  joy.active = false; joy.id = -1; joy.x = joy.y = 0;
+  lookPtr.id = -1; look.dx = 0; look.dy = 0;
+  if (stickEl) stickEl.classList.remove('on');
+}
+function setTouchMode(on) {
+  if (touchMode === on) return;
+  touchMode = on;
+  document.body.classList.toggle('touch', on);
+  releaseInputs();
+  if (on && document.pointerLockElement) document.exitPointerLock();
+}
+
+/* ---- the floating walk stick ---- */
+function stickRadius() { return clamp(Math.min(innerWidth, innerHeight) * 0.11, 44, 90); }
+function stickPlace() {
+  const R = stickRadius();
+  stickEl.style.width = stickEl.style.height = (R * 2) + 'px';
+  stickEl.style.left = (joy.ox - R) + 'px'; stickEl.style.top = (joy.oy - R) + 'px';
+}
+function joyStart(x, y, id) {
+  joy.active = true; joy.id = id; joy.ox = x; joy.oy = y; joy.x = 0; joy.y = 0;
+  stickPlace(); stickKnob.style.transform = 'translate(0px,0px)'; stickEl.classList.add('on');
+}
+function joyMove(cx, cy) {
+  const R = stickRadius();
+  let dx = cx - joy.ox, dy = cy - joy.oy, d = Math.hypot(dx, dy);
+  if (d > R * 1.5) {                       // finger ran well past the ring: bring the ring along with it
+    const k = (d - R * 1.5) / d;
+    joy.ox += dx * k; joy.oy += dy * k;
+    dx = cx - joy.ox; dy = cy - joy.oy; d = Math.hypot(dx, dy);
+    stickPlace();
+  }
+  const m = Math.min(1, d / R), dead = 0.12;
+  const s = m < dead ? 0 : (m - dead) / (1 - dead);          // small finger drift doesn't walk you around
+  joy.x = d > 0 ? dx / d * s : 0; joy.y = d > 0 ? dy / d * s : 0;
+  const kd = Math.min(d, R);
+  stickKnob.style.transform = 'translate(' + (d > 0 ? dx / d * kd : 0) + 'px,' + (d > 0 ? dy / d * kd : 0) + 'px)';
+}
+function joyEnd() {
+  joy.active = false; joy.id = -1; joy.x = joy.y = 0;
+  stickEl.classList.remove('on');
+}
 
 function bindInput() {
+  stickEl = document.getElementById('stick'); stickKnob = document.getElementById('stickKnob');
+  // Any real touch switches to touch controls; a real mouse switches back (touch-screen laptops, tablets with a trackpad).
+  addEventListener('touchstart', function () { setTouchMode(true); }, { capture: true, passive: true });
+  function pointerKind(e) { if (e.pointerType === 'mouse') setTouchMode(false); }
+  addEventListener('pointermove', pointerKind, true);
+  addEventListener('pointerdown', pointerKind, true);
+  // Losing focus (alt-tab, app switch, notification pull-down) must not leave keys or fingers stuck.
+  addEventListener('blur', function () { releaseInputs(); if (mode === 'play') pause(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { releaseInputs(); if (mode === 'play') pause(); }
+    else if (AC && AC.state === 'suspended') AC.resume();
+  });
+
   addEventListener('keydown', function (e) {
-    if (e.repeat) { e.preventDefault(); return; }
+    const tg = e.target;
+    const typing = !!(tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.tagName === 'SELECT'));
+    if (e.code === 'Escape') {
+      if (e.repeat) return;
+      if (mode === 'editor') { if (document.getElementById('edModal').classList.contains('show')) closeModal(); else closeLevelEditor(); }
+      else if (mode === 'play') pause(); else if (mode === 'paused') resume();
+      return;
+    }
+    if (typing || mode === 'editor') return;      // typing a floor name must not toggle music or steal key-repeat
+    if (e.repeat) { if (mode === 'play') e.preventDefault(); return; }
     keys[e.code] = true;
-    if (e.code === 'Escape') { if (mode === 'editor') closeLevelEditor(); else if (mode === 'play') pause(); else if (mode === 'paused') resume(); }
     if (e.code === 'KeyM') { SET.music = !SET.music; saveSet(); say(SET.music ? 'Music on' : 'Music off'); }
+    if (e.code === 'KeyP') { if (mode === 'play') pause(); else if (mode === 'paused') resume(); }
     if (mode === 'play') {
       if (e.code === 'Space') { attack('bite'); e.preventDefault(); }
       if (e.code === 'KeyE' || e.code === 'KeyF') attack('claw');
@@ -2424,29 +2588,32 @@ function bindInput() {
   view.addEventListener('mousedown', function (e) {
     if (mode !== 'play') return;
     e.preventDefault();
-    if (document.pointerLockElement !== view) { view.requestPointerLock(); return; }
+    // first click locks the mouse; if the browser refuses, clicks attack instead of retrying forever
+    if (document.pointerLockElement !== view && !lockDenied) { tryLock(); return; }
     if (e.button === 0) attack('claw');
     if (e.button === 2) attack('bite');
   });
   view.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   addEventListener('mousemove', function (e) {
     if (mode === 'play' && document.pointerLockElement === view) {
-      look.dx += e.movementX;
-      look.dy += (e.movementY || 0);
+      look.dx += clamp(e.movementX, -150, 150);           // ignore the occasional huge spike right after locking
+      look.dy += clamp(e.movementY || 0, -150, 150);
     }
   });
   document.addEventListener('pointerlockchange', function () {
-    if (mode === 'play' && document.pointerLockElement !== view && !touchMode) pause();
+    if (document.pointerLockElement === view) { lockDenied = false; return; }
+    if (mode === 'play' && !touchMode) pause();
   });
+  document.addEventListener('pointerlockerror', lockUnavailable);
 
   // touch: left half drives, right half looks
   const zone = document.getElementById('touchzone');
   function down(e) {
-    touchMode = true; document.body.classList.add('touch');
+    setTouchMode(true);
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.clientX < innerWidth * 0.45) {
-        if (!joy.active) { joy.active = true; joy.id = t.identifier; joy.ox = t.clientX; joy.oy = t.clientY; joy.x = 0; joy.y = 0; }
+        if (!joy.active) joyStart(t.clientX, t.clientY, t.identifier);
       } else if (lookPtr.id === -1) { lookPtr.id = t.identifier; lookPtr.lx = t.clientX; lookPtr.ly = t.clientY; }
     }
     e.preventDefault();
@@ -2455,8 +2622,7 @@ function bindInput() {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === joy.id) {
-        joy.x = clamp((t.clientX - joy.ox) / 60, -1, 1);
-        joy.y = clamp((t.clientY - joy.oy) / 60, -1, 1);
+        joyMove(t.clientX, t.clientY);
       } else if (t.identifier === lookPtr.id) {
         look.dx += (t.clientX - lookPtr.lx) * 1.7; lookPtr.lx = t.clientX;
         look.dy += (t.clientY - lookPtr.ly) * 1.7; lookPtr.ly = t.clientY;
@@ -2467,7 +2633,7 @@ function bindInput() {
   function up(e) {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
-      if (t.identifier === joy.id) { joy.active = false; joy.id = -1; joy.x = joy.y = 0; }
+      if (t.identifier === joy.id) joyEnd();
       if (t.identifier === lookPtr.id) lookPtr.id = -1;
     }
     e.preventDefault();
@@ -2481,7 +2647,7 @@ function bindInput() {
     const el = document.getElementById(id);
     el.addEventListener('touchstart', function (e) {
       e.preventDefault(); e.stopPropagation();
-      touchMode = true; document.body.classList.add('touch'); fn();
+      setTouchMode(true); fn();
     }, { passive: false });
     el.addEventListener('click', function (e) { e.preventDefault(); fn(); });
   }
@@ -2510,7 +2676,11 @@ function overlay(title, sub, bodyHTML, buttons) {
   });
   ov.classList.remove('hide');
 }
-function hideOverlay() { document.getElementById('overlay').classList.add('hide'); }
+function hideOverlay() {
+  const ov = document.getElementById('overlay');
+  if (document.activeElement && ov.contains(document.activeElement)) document.activeElement.blur();   // hidden buttons keep no focus
+  ov.classList.add('hide');
+}
 
 function titleScreen() {
   mode = 'title';
@@ -2521,7 +2691,9 @@ function titleScreen() {
     '<p><b>Claw</b> left click or F — quick swipe. <b>Bite</b> right click or space — slow but mighty.</p>' +
     '<p><b>Roar</b> R — freezes every dino nearby. Stars give you another one.</p>' +
     '<p>Golden eggs are points, meat is lunch, and the green footprint is the way out.</p>' +
-    '<p class="mob">On a phone: drag the left side to walk, the right side to look.</p>' +
+    '<p class="mob"><b>Walk</b> drag anywhere on the left side. <b>Look</b> drag the right side, up and down too.</p>' +
+    '<p class="mob"><b>Claw</b>, <b>Bite</b> and <b>Roar</b> are the buttons at the bottom right. <b>Pause</b> is the II button.</p>' +
+    '<p class="mob">Golden eggs are points, meat is lunch, and the green footprint is the way out.</p>' +
     '</div>' + best,
     [
       { label: 'Start stomping', go: function () { startGame(false); } },
@@ -2530,15 +2702,22 @@ function titleScreen() {
     ]);
 }
 
+let floorStartScore = 0, floorStartRoars = 1;   // what a floor retry goes back to (no farming score by dying)
+let playtesting = false;                          // true while testing an edited floor from the editor
+
 function startGame(easy) {
   SET.easy = !!easy; saveSet();
   audioStart();
+  playtesting = false;
   totalScore = 0; curLevel = 0;
   P.eggs = 0; P.roars = 1;
   loadLevel(0);
 }
 
-function loadLevel(i) {
+function loadLevel(i, retry) {
+  if (retry) { totalScore = floorStartScore; P.roars = floorStartRoars; }
+  else { floorStartScore = totalScore; floorStartRoars = P.roars; }
+  lockHinted = false; edEditedRunning = false;
   curLevel = i;
   W = buildLevel(i);
   P.x = W.spawn.x; P.y = W.spawn.y;
@@ -2558,7 +2737,7 @@ function loadLevel(i) {
   hideOverlay();
   say(W.def.name, true);
   say(W.def.sub);
-  if (!touchMode) view.requestPointerLock && view.requestPointerLock();
+  tryLock();
 }
 
 function pause() {
@@ -2566,8 +2745,10 @@ function pause() {
   mode = 'paused';
   if (document.pointerLockElement === view) document.exitPointerLock();
   overlay('Paused', 'Catch your breath.', '<div class="how"><p>Eggs found: ' + W.eggs + ' of ' + W.eggsTotal +
-    '</p><p>Dinos scared off: ' + W.scared + '</p></div>', [
+    '</p><p>Dinos scared off: ' + W.scared + '</p>' +
+    (edEditedRunning ? '<p><b>You edited this floor.</b> The changes appear when you restart it.</p>' : '') + '</div>', [
     { label: 'Keep stomping', go: resume },
+    { label: 'Restart this floor', ghost: true, go: function () { loadLevel(curLevel, true); } },
     { label: 'Edit this floor', ghost: true, go: function () { openLevelEditor(curLevel); } },
     { label: SET.music ? 'Turn music off' : 'Turn music on', ghost: true, go: function () { SET.music = !SET.music; saveSet(); pauseRefresh(); } },
     { label: 'Back to the start', ghost: true, go: titleScreen }
@@ -2576,7 +2757,7 @@ function pause() {
 function pauseRefresh() { mode = 'play'; pause(); }
 function resume() {
   mode = 'play'; hideOverlay();
-  if (!touchMode) view.requestPointerLock && view.requestPointerLock();
+  tryLock();
 }
 
 function levelClear() {
@@ -2594,9 +2775,11 @@ function levelClear() {
     row('Time', fmtTime(W.time)) +
     (bonus ? row('Every-egg bonus', '+' + bonus) : '') +
     row('Score', String(totalScore)) + '</div>',
+    playtesting ? [{ label: 'Back to the editor', go: function () { openLevelEditor(curLevel); } },
+                   { label: 'Back to the start', ghost: true, go: titleScreen }] :
     last ? [{ label: 'Play again', go: titleScreen }] :
       [{ label: 'Next floor', go: function () { loadLevel(curLevel + 1); } }]);
-  if (last) {
+  if (last && !playtesting) {                 // a playtest of an edited floor never sets the best score
     if (!SET.best || totalScore > SET.best) { SET.best = totalScore; }
     saveSet();
   }
@@ -2613,8 +2796,8 @@ function gameOver() {
   if (document.pointerLockElement === view) document.exitPointerLock();
   SFX.lose();
   overlay('Flat on your tail', 'The dinos chased you off this floor.',
-    '<div class="how"><p>Nothing is lost — the floor starts fresh and you keep your score.</p></div>',
-    [{ label: 'Try this floor again', go: function () { loadLevel(curLevel); } },
+    '<div class="how"><p>Nothing is lost — the floor starts fresh, with the score and roars you arrived with.</p></div>',
+    [{ label: 'Try this floor again', go: function () { loadLevel(curLevel, true); } },
     { label: 'Back to the start', ghost: true, go: titleScreen }]);
 }
 
@@ -2643,6 +2826,7 @@ function resolveAttack(a) {
     const d = Math.hypot(dx, dy);
     if (d > a.reach + t.scale * 0.35) continue;
     if ((dx * P.dirX + dy * P.dirY) / (d || 1) < a.arc) continue;
+    if (!losClear(P.x, P.y, t.x, t.y)) continue;      // no biting through walls or trees
     hurtDino(t, a.dmg, a.kind);
     if (++hits >= a.max) break;
   }
@@ -2703,7 +2887,7 @@ function doRoar() {
     const t = W.things[i];
     if (t.kind !== 'dino' || !t.alive || t.state === 'poof') continue;
     const d = Math.hypot(t.x - P.x, t.y - P.y);
-    if (d > 7.5) continue;
+    if (d > 7.5 || t.state === 'sleep') continue;     // a roar freezes chasers; it doesn't wake sleepers (least of all through walls)
     t.stun = (t.type === 'king' || t.isBoss) ? 1.6 : 3.2;
     t.state = 'stun'; t.t = 0; t.frame = 3;
     const kx = (t.x - P.x) / (d || 1), ky = (t.y - P.y) / (d || 1);
@@ -2731,7 +2915,7 @@ function wake(t) {
   for (let i = 0; i < W.things.length; i++) {
     const o = W.things[i];
     if (o !== t && o.kind === 'dino' && o.alive && o.state === 'sleep' &&
-      Math.hypot(o.x - t.x, o.y - t.y) < 5) {
+      Math.hypot(o.x - t.x, o.y - t.y) < 5 && losClear(t.x, t.y, o.x, o.y)) {
       o.state = 'chase'; o.t = 0;
       if (o.type === 'borealosuchus') o.vOff = 0.22;
     }
@@ -2771,7 +2955,8 @@ function updateDino(t, dt) {
     while (diff > Math.PI) diff -= TAU;
     // Vision cone: sleeping dinos only see player within front 135 deg cone
     const inSightCone = Math.abs(diff) < Math.PI * 0.38;
-    if ((dist < sight && inSightCone && losClear(t.x, t.y, P.x, P.y)) || dist < 2.0) wake(t);
+    // close by they notice you from any angle, but never through a wall
+    if (dist < sight && (inSightCone || dist < 2.0) && losClear(t.x, t.y, P.x, P.y)) wake(t);
     return;
   }
 
@@ -2792,7 +2977,7 @@ function updateDino(t, dt) {
     if (t.type === 'ptero') t.vOff = -0.05;
     if (!t.hitDone && t.t >= d.wind) {
       t.hitDone = true;
-      if (Math.hypot(P.x - t.x, P.y - t.y) <= d.reach + 0.45) hurtPlayer(d.dmg);
+      if (Math.hypot(P.x - t.x, P.y - t.y) <= d.reach + 0.45 && losClear(t.x, t.y, P.x, P.y)) hurtPlayer(d.dmg);
       else SFX.bonk();
     }
     if (t.t >= d.wind + 0.18) { t.state = 'rest'; t.t = 0; }
@@ -2812,7 +2997,8 @@ function updateDino(t, dt) {
 
   // Carnotaurus sprint ram charge
   if (t.type === 'carnotaurus') {
-    if (!t.charging && dist > 2.5 && dist < 12.0 && Math.random() < dt * 2.0 && losClear(t.x, t.y, P.x, P.y)) {
+    // (timers count down past 0 to a tiny negative number, which is truthy, so test "> 0", not "!timer")
+    if (!(t.charging > 0) && dist > 2.5 && dist < 12.0 && Math.random() < dt * 2.0 && losClear(t.x, t.y, P.x, P.y)) {
       t.charging = 1.6;
       t.chargeX = dx / (dist || 1);
       t.chargeY = dy / (dist || 1);
@@ -2828,7 +3014,7 @@ function updateDino(t, dt) {
         t.charging = 0; t.stun = 0.8; t.state = 'stun'; SFX.bonk();
         return;
       }
-      if (dist <= d.reach + 0.3) {
+      if (dist <= d.reach + 0.3 && losClear(t.x, t.y, P.x, P.y)) {
         hurtPlayer(d.dmg * 1.25);
         t.charging = 0; t.state = 'rest'; t.t = 0;
       } else if (t.charging <= 0) {
@@ -2841,7 +3027,7 @@ function updateDino(t, dt) {
   // Borealosuchus snap lunge
   if (t.type === 'borealosuchus') {
     t.vOff = 0.22;
-    if (!t.lunging && dist > 1.8 && dist < 5.5 && Math.random() < dt * 2.2 && losClear(t.x, t.y, P.x, P.y)) {
+    if (!(t.lunging > 0) && dist > 1.8 && dist < 5.5 && Math.random() < dt * 2.2 && losClear(t.x, t.y, P.x, P.y)) {
       t.lunging = 0.55;
       t.lungeX = dx / (dist || 1);
       t.lungeY = dy / (dist || 1);
@@ -2867,7 +3053,7 @@ function updateDino(t, dt) {
 
   // Triceratops pawing and charge
   if (t.type === 'trike') {
-    if (!t.pawing && !t.trikeCharging && dist > 2.8 && dist < 9.0 && Math.random() < dt * 1.8 && losClear(t.x, t.y, P.x, P.y)) {
+    if (!(t.pawing > 0) && !(t.trikeCharging > 0) && dist > 2.8 && dist < 9.0 && Math.random() < dt * 1.8 && losClear(t.x, t.y, P.x, P.y)) {
       t.pawing = 0.7;
       t.chargeX = dx / (dist || 1);
       t.chargeY = dy / (dist || 1);
@@ -2889,7 +3075,7 @@ function updateDino(t, dt) {
         t.trikeCharging = 0; t.stun = 0.8; t.state = 'stun'; SFX.bonk();
         return;
       }
-      if (dist <= d.reach + 0.3) {
+      if (dist <= d.reach + 0.3 && losClear(t.x, t.y, P.x, P.y)) {
         hurtPlayer(d.dmg);
         t.trikeCharging = 0; t.state = 'rest'; t.t = -0.3;
       }
@@ -2897,7 +3083,7 @@ function updateDino(t, dt) {
     }
   }
 
-  if (dist <= d.reach) {
+  if (dist <= d.reach && losClear(t.x, t.y, P.x, P.y)) {
     t.state = 'wind'; t.t = 0; t.hitDone = false;
     t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * dt);
     return;
@@ -3006,14 +3192,14 @@ function update(dt) {
   W.doors.forEach(function (d, i) {
     const dx2 = (i % MW) + 0.5 - P.x, dy2 = ((i / MW) | 0) + 0.5 - P.y;
     const dd = Math.hypot(dx2, dy2);
-    if (d.open < 1 && dd < 1.6) {
+    if (d.open < 1 && dd < 2.2) {      // far enough out that a sprint doesn't reach a still-closed door
       if (d.locked && !P.keys) {
         if (!d.nagged) { d.nagged = 1; say(W.isOutdoor ? 'Locked bone gate. Find the bone key.' : 'Locked. Find the bone key.'); }
       } else {
         if (!d.moving) { d.moving = 1; SFX.door(); if (d.locked) say(W.isOutdoor ? 'The bone gate unlatches!' : 'The bone key fits!'); }
       }
     }
-    if (d.moving && d.open < 1) d.open = Math.min(1, d.open + dt * 1.5);
+    if (d.moving && d.open < 1) d.open = Math.min(1, d.open + dt * 2.0);
   });
 
   // dinos + pickups
@@ -3340,8 +3526,10 @@ function resize() {
   hs = view.width / 480;
   vctx = view.getContext('2d');
   vctx.imageSmoothingEnabled = false;
+  frozen = false;                 // resizing clears the canvas: draw the frozen scene once more
 }
 
+let frozen = false;               // true once the still frame behind a menu has been drawn
 function frame(ts) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (ts - lastT) / 1000 || 0);
@@ -3349,8 +3537,12 @@ function frame(ts) {
   if (mode === 'play') {
     update(dt);
     musicTick();
+    frozen = false;
   }
-  if (mode === 'play' || mode === 'paused' || mode === 'clear' || mode === 'dead') {
+  // Behind pause / clear / game-over the scene doesn't change and the menu covers it, so draw it once, not every
+  // frame (saves battery, mostly on tablets and phones).
+  const stillFrame = (mode === 'paused' || mode === 'clear' || mode === 'dead') && !frozen;
+  if (mode === 'play' || stillFrame) {
     if (W) {
       renderWorld({
         x: P.x, y: P.y, dirX: P.dirX, dirY: P.dirY,
@@ -3359,6 +3551,7 @@ function frame(ts) {
       vctx.imageSmoothingEnabled = false;
       vctx.drawImage(sceneCv, 0, 0, RW, RH, 0, 0, view.width, view.height);
       drawHUD();
+      if (stillFrame) frozen = true;
     }
   }
 }
@@ -3399,9 +3592,9 @@ const ED_PALETTE = {
     { ch: 'P', label: 'Player', desc: 'Player spawn point (unique)', color: '#b8dc30' },
     { ch: 'E', label: 'Exit', desc: 'Level exit portal (unique)', color: '#3cd4c4' },
     { ch: '$', label: 'Egg', desc: 'Collectible dinosaur egg', color: '#fbe458' },
-    { ch: 'm', label: 'Meat', desc: 'Health restoration (+35 HP)', color: '#ff6666' },
+    { ch: 'm', label: 'Meat', desc: 'Health restoration (+28 HP)', color: '#ff6666' },
     { ch: 'k', label: 'Key', desc: 'Golden door key', color: '#ffe040' },
-    { ch: 's', label: 'Star', desc: 'Speed star boost', color: '#48e0f5' }
+    { ch: 's', label: 'Star', desc: 'Extra roar charge (max 3)', color: '#48e0f5' }
   ]
 };
 
@@ -3416,6 +3609,9 @@ let edFloorIdx = 0;
 let edActiveChar = '#';
 let edPrevMode = 'menu';
 let edIsDrawing = false;
+let edDirty = false;          // painted since the last save to storage (saved when the stroke ends, not per cell)
+let edRunKey = '';            // the running floor as it was when the editor opened, to tell if it was changed
+let edEditedRunning = false;  // the floor being played was edited: its changes show up on a restart
 let edHoverX = -1, edHoverY = -1;
 let edGrid = [];
 let edCanvas = null, edCtx = null;
@@ -3497,7 +3693,7 @@ function initEditorUI() {
   document.getElementById('edModalApply').addEventListener('click', applyImportedMap);
   document.getElementById('edModalClose').addEventListener('click', closeModal);
 
-  // Canvas mouse handlers
+  // Canvas pointer handlers: mouse, finger and pen all paint the same way (drag to paint)
   function getCellCoords(e) {
     const rect = edCanvas.getBoundingClientRect();
     const scaleX = edCanvas.width / rect.width;
@@ -3509,36 +3705,34 @@ function initEditorUI() {
     return { gx: Math.max(0, Math.min(MW - 1, gx)), gy: Math.max(0, Math.min(MH - 1, gy)) };
   }
 
-  edCanvas.addEventListener('mousedown', function (e) {
-    if (e.button !== 0 && e.button !== 2) return;
+  let edErase = false;
+  function endStroke() {
+    edIsDrawing = false;
+    if (edDirty) { edDirty = false; saveCustomLevelsToStorage(); }
+  }
+  edCanvas.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return;
+    e.preventDefault();
+    try { edCanvas.setPointerCapture(e.pointerId); } catch (err) { }   // keep the stroke when the finger/mouse leaves the grid
     edIsDrawing = true;
+    edErase = e.pointerType === 'mouse' && e.button === 2;           // right-click erases; on touch pick the Floor tile
     const pos = getCellCoords(e);
     edHoverX = pos.gx; edHoverY = pos.gy;
-    if (e.button === 2) {
-      paintCell(pos.gx, pos.gy, '.');
-    } else {
-      paintCell(pos.gx, pos.gy, edActiveChar);
-    }
+    paintCell(pos.gx, pos.gy, edErase ? '.' : edActiveChar);
   });
-
-  edCanvas.addEventListener('mousemove', function (e) {
+  edCanvas.addEventListener('pointermove', function (e) {
     const pos = getCellCoords(e);
+    const moved = pos.gx !== edHoverX || pos.gy !== edHoverY;
     edHoverX = pos.gx; edHoverY = pos.gy;
-    if (edIsDrawing) {
-      if (e.buttons === 2) {
-        paintCell(pos.gx, pos.gy, '.');
-      } else {
-        paintCell(pos.gx, pos.gy, edActiveChar);
-      }
-    } else {
-      renderEditorGrid();
-    }
+    if (edIsDrawing) paintCell(pos.gx, pos.gy, edErase ? '.' : edActiveChar);
+    else if (moved) renderEditorGrid();
   });
-
-  addEventListener('mouseup', function () { edIsDrawing = false; });
-  edCanvas.addEventListener('mouseleave', function () {
+  edCanvas.addEventListener('pointerup', endStroke);
+  edCanvas.addEventListener('pointercancel', endStroke);
+  edCanvas.addEventListener('pointerleave', function () {
+    if (edIsDrawing) return;
     edHoverX = -1; edHoverY = -1;
-    if (!edIsDrawing) renderEditorGrid();
+    renderEditorGrid();
   });
   edCanvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 }
@@ -3546,6 +3740,7 @@ function initEditorUI() {
 function openLevelEditor(floorIdx) {
   if (floorIdx === undefined || floorIdx === null) floorIdx = 0;
   edPrevMode = mode;
+  if (edPrevMode === 'play' || edPrevMode === 'paused') edRunKey = levelKey(LEVELS[curLevel]);
   mode = 'editor';
   if (document.pointerLockElement === view) document.exitPointerLock();
   hideOverlay();
@@ -3556,8 +3751,12 @@ function openLevelEditor(floorIdx) {
 function closeLevelEditor() {
   saveCurrentEditorFloor();
   saveCustomLevelsToStorage();
+  closeModal();
   document.getElementById('editorOverlay').classList.add('hide');
   if (edPrevMode === 'play' || edPrevMode === 'paused') {
+    edEditedRunning = levelKey(LEVELS[curLevel]) !== edRunKey;
+    // pause() only acts from 'play'. Calling it while still in 'editor' left a blank screen that Esc couldn't escape.
+    mode = 'play';
     pause();
   } else {
     titleScreen();
@@ -3584,14 +3783,16 @@ function saveCurrentEditorFloor() {
   const lvl = LEVELS[edFloorIdx];
   lvl.grid = edGrid.slice();
   lvl.name = document.getElementById('edName').value || lvl.name;
-  lvl.floor = document.getElementById('edFloorTex').value;
-  lvl.ceil = document.getElementById('edCeilTex').value;
-  lvl.ceilH = parseFloat(document.getElementById('edCeilH').value) || 1.35;
+  const f = document.getElementById('edFloorTex').value, c = document.getElementById('edCeilTex').value;
+  lvl.floor = FLOOR_TEXS.indexOf(f) >= 0 ? f : lvl.floor;
+  lvl.ceil = CEIL_TEXS.indexOf(c) >= 0 ? c : lvl.ceil;
+  lvl.ceilH = clamp(parseFloat(document.getElementById('edCeilH').value) || 1.35, 1, 4);
 }
 
 function paintCell(gx, gy, chToPaint) {
   if (gx < 0 || gy < 0 || gx >= MW || gy >= MH) return;
   const ch = chToPaint || edActiveChar;
+  if (edGrid[gy][gx] === ch) return;               // dragging within one cell: nothing to do
   if (ch === 'P' || ch === 'E') {
     for (let y = 0; y < MH; y++) {
       const idx = edGrid[y].indexOf(ch);
@@ -3603,7 +3804,7 @@ function paintCell(gx, gy, chToPaint) {
   const row = edGrid[gy];
   edGrid[gy] = row.substring(0, gx) + ch + row.substring(gx + 1);
   saveCurrentEditorFloor();
-  saveCustomLevelsToStorage();
+  edDirty = true;                                  // written to storage when the stroke ends
   renderEditorGrid();
 }
 
@@ -3662,11 +3863,46 @@ function getEditorValidation(grid) {
     }
   }
 
+  // Reachability audit: flood-fill from the spawn (doors open, trees block) with and without key gates.
+  let exitLost = false, keyLost = false, eggsLost = 0;
+  if (playerCount === 1) {
+    const flood = function (passGates) {
+      const seen = new Uint8Array(MW * MH), stack = [];
+      for (let i = 0; i < MW * MH; i++) if (grid[(i / MW) | 0][i % MW] === 'P') { seen[i] = 1; stack.push(i); }
+      while (stack.length) {
+        const i = stack.pop(), x = i % MW, y = (i / MW) | 0;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+          const nx = x + d[0], ny = y + d[1];
+          if (nx < 0 || ny < 0 || nx >= MW || ny >= MH) return;
+          const j = ny * MW + nx, t = tiles[j];
+          if (seen[j] || grid[ny][nx] === 'T') return;
+          if (t !== 0 && t !== 6 && t !== 7) return;       // walls
+          if (t === 7 && !passGates) return;               // key gate
+          seen[j] = 1; stack.push(j);
+        });
+      }
+      return seen;
+    };
+    const withGates = flood(true), noGates = flood(false);
+    let keyOK = false;
+    for (let i = 0; i < MW * MH; i++) if (grid[(i / MW) | 0][i % MW] === 'k' && noGates[i]) keyOK = true;
+    const eff = keyOK ? withGates : noGates;               // gates only count as passable if a key can be fetched first
+    keyLost = keyCount > 0 && !keyOK;
+    for (let i = 0; i < MW * MH; i++) {
+      const c = grid[(i / MW) | 0][i % MW];
+      if (c === 'E' && !eff[i]) exitLost = true;
+      else if (c === '$' && !eff[i]) eggsLost++;
+    }
+  }
+
   const errors = [];
   const warnings = [];
   if (playerCount === 0) errors.push('No player spawn (P)');
   if (exitCount === 0) errors.push('No level exit (E)');
   if (treeIssues.size > 0) errors.push(treeIssues.size + ' tree(s) blocking passages!');
+  if (exitLost) errors.push("Exit (E) can't be reached from the spawn (P)");
+  if (keyLost) errors.push("The key (k) can't be reached without passing a key gate (K)");
+  if (eggsLost > 0) warnings.push(eggsLost + ' egg(s) ($) can\'t be reached');
   if (eggCount === 0) warnings.push('0 eggs placed ($)');
   if (keyDoorCount > 0 && keyCount === 0) warnings.push('Key door (K) exists with no key (k)');
 
@@ -3784,21 +4020,23 @@ function playtestEditorFloor() {
   }
   document.getElementById('editorOverlay').classList.add('hide');
   audioStart();
+  playtesting = true;                 // a test run: own score, and it never counts toward the best score
+  totalScore = 0; P.eggs = 0; P.roars = 1;
   loadLevel(edFloorIdx);
 }
+
+/* messages in the editor go in its status line (the in-game toasts are drawn on the canvas behind it) */
+function edNote(msg) { document.getElementById('edHoverInfo').textContent = msg; }
 
 function exportEditorMap() {
   saveCurrentEditorFloor();
   saveCustomLevelsToStorage();
   const lvl = LEVELS[edFloorIdx];
-  const gridStr = JSON.stringify(lvl.grid, null, 2);
-  const out = '{\n  name: ' + JSON.stringify(lvl.name) + ',\n' +
-              '  ceilH: ' + lvl.ceilH + ',\n' +
-              '  sub: ' + JSON.stringify(lvl.sub || '') + ',\n' +
-              '  floor: ' + JSON.stringify(lvl.floor) + ',\n' +
-              '  ceil: ' + JSON.stringify(lvl.ceil) + ',\n' +
-              '  boss: ' + !!lvl.boss + ',\n' +
-              '  grid: ' + gridStr + '\n}';
+  // Real JSON, so Import can read it straight back (it is also a valid JS object literal for pasting into LEVELS)
+  const out = JSON.stringify({
+    name: lvl.name, ceilH: lvl.ceilH, sub: lvl.sub || '', floor: lvl.floor, ceil: lvl.ceil,
+    boss: !!lvl.boss, grid: lvl.grid
+  }, null, 2);
   document.getElementById('edModalTitle').textContent = 'Export Floor ' + edFloorIdx + ' (' + lvl.name + ')';
   const ta = document.getElementById('edModalText');
   ta.value = out;
@@ -3820,14 +4058,14 @@ function openImportModal() {
 function copyModalText() {
   const ta = document.getElementById('edModalText');
   ta.select();
+  const legacy = function () {
+    try { document.execCommand('copy'); edNote('Copied!'); } catch (e) { edNote('Select the text and copy it by hand.'); }
+  };
   try {
-    navigator.clipboard.writeText(ta.value).then(function () {
-      say('Copied to clipboard!');
-    });
-  } catch (e) {
-    document.execCommand('copy');
-    say('Copied!');
-  }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(function () { edNote('Copied to clipboard!'); }, legacy);   // legacy if refused
+    } else legacy();
+  } catch (e) { legacy(); }
 }
 
 function closeModal() {
@@ -3843,14 +4081,15 @@ function applyImportedMap() {
     if (Array.isArray(parsed) && parsed.length === MH) {
       newGrid = parsed.map(function (s) { return String(s).padEnd(MW, '.').slice(0, MW); });
     } else if (parsed && Array.isArray(parsed.grid) && parsed.grid.length === MH) {
-      newGrid = parsed.grid.map(function (s) { return String(s).padEnd(MW, '.').slice(0, MW); });
-      if (parsed.name) document.getElementById('edName').value = parsed.name;
-      if (parsed.floor) document.getElementById('edFloorTex').value = parsed.floor;
-      if (parsed.ceil) document.getElementById('edCeilTex').value = parsed.ceil;
-      if (parsed.ceilH) {
-        document.getElementById('edCeilH').value = parsed.ceilH;
-        document.getElementById('edCeilVal').textContent = parseFloat(parsed.ceilH).toFixed(2) + 'x';
-      }
+      // unknown textures or an out-of-range height fall back to this floor's own values instead of breaking it
+      const c = cleanLevel(parsed, LEVELS[edFloorIdx]);
+      newGrid = c.grid;
+      document.getElementById('edName').value = c.name;
+      document.getElementById('edFloorTex').value = c.floor;
+      document.getElementById('edCeilTex').value = c.ceil;
+      document.getElementById('edCeilH').value = c.ceilH;
+      document.getElementById('edCeilVal').textContent = c.ceilH.toFixed(2) + 'x';
+      LEVELS[edFloorIdx].boss = c.boss; LEVELS[edFloorIdx].sub = c.sub;
     }
   } catch (e) {
     const lines = raw.split(/\r?\n/).map(function (l) { return l.trim().replace(/^["',]|["',]$/g, ''); }).filter(function (l) { return l.length > 0; });
@@ -3869,7 +4108,7 @@ function applyImportedMap() {
   saveCustomLevelsToStorage();
   renderEditorGrid();
   closeModal();
-  say('Level imported successfully!');
+  edNote('Level imported.');
 }
 
 function resetEditorFloor() {
@@ -3878,7 +4117,7 @@ function resetEditorFloor() {
   LEVELS[edFloorIdx] = JSON.parse(JSON.stringify(pristine));
   loadFloorToEditor(edFloorIdx);
   saveCustomLevelsToStorage();
-  say('Floor ' + edFloorIdx + ' reset to default.');
+  edNote('Floor ' + edFloorIdx + ' reset to default.');
 }
 
 function boot() {
@@ -3892,13 +4131,14 @@ function boot() {
   bindInput();
   initEditorUI();
   addEventListener('resize', resize);
-  if ('ontouchstart' in window) { touchMode = true; document.body.classList.add('touch'); }
+  setTouchMode(detectTouch());
   document.getElementById('loading').classList.add('hide');
   titleScreen();
   requestAnimationFrame(frame);
 }
-if (document.readyState === 'complete') setTimeout(boot, 30);
-else addEventListener('load', function () { setTimeout(boot, 30); });
+// This script sits at the end of <body>, so the page is already parsed: start right away (after one paint of the
+// loading screen). Waiting for the window "load" event would also wait for the optional web font.
+setTimeout(boot, 30);
 </script>
 </body>
 </html>
