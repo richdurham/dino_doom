@@ -201,10 +201,27 @@ body {
   border-color: #f43f5e;
 }
 
+/* In full-window mode the exit button gets its own slim bar above the game, so it never sits on top of the
+   game's HUD or minimap. The game fills the space below the bar. */
+.game-container.expanded {
+  display: flex !important;
+  flex-direction: column;
+  background: #0b120c !important;
+}
+.game-container.expanded .game-frame {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
 .game-container.expanded .exit-full-btn {
   display: flex;
   align-items: center;
   gap: 6px;
+  position: static;      /* in the flow, not floating over the game */
+  order: -1;             /* above the game */
+  align-self: flex-end;
+  margin: 5px 10px;
+  padding: 5px 12px;
 }
 
 /* Info Sections */
