@@ -3379,11 +3379,7 @@ function drawArms(c) {
       const x = 22 + i * 40, y = 232 + gap * 0.5 - Math.sin(i / 11 * Math.PI) * 34;
       c.beginPath(); c.moveTo(x - 10, y + 6); c.lineTo(x + 10, y + 6); c.lineTo(x, y - 19); c.closePath(); c.fill();
     }
-    if (close > 0.92) {
-      c.globalAlpha = (close - 0.92) * 10;
-      c.fillStyle = '#fff8d0'; c.fillRect(0, 0, 480, 270);
-      c.globalAlpha = 1;
-    }
+    // (no full-screen flash when the jaws snap shut: a flash reads as the player being hurt)
     c.restore();
   }
 }
