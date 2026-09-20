@@ -1,5 +1,7 @@
 # 🦖 Rex Rumble (Dino Doom)
 
+> ### 🎮 **[▶ Play Online in Browser (No Install Needed)](https://richdurham.github.io/dino_doom/)**
+
 A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfenstein 3D* and *Doom*, built entirely in self-contained **HTML5 Canvas** and **Vanilla JavaScript** with procedural graphics, authentic synthesizer sound effects, and Web Audio.
 
 ![Rex Rumble Gameplay](https://raw.githubusercontent.com/richdurham/dino_doom/main/screenshot.png)
