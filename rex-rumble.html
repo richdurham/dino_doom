@@ -142,16 +142,16 @@ body.touch #bPause{display:block}
   display:flex;flex-direction:column;gap:12px;overflow-y:auto}
 .ed-pal-sec{font-size:12px;font-weight:600;color:var(--egg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .ed-pal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.ed-chip{height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+.ed-chip{height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:#0c1a14;border:2px solid #234332;border-radius:8px;cursor:pointer;font-size:11px;
-  color:#cbdcd0;transition:all .1s;user-select:none}
+  color:#cbdcd0;transition:all .1s;user-select:none;gap:2px}
 .ed-chip:hover{border-color:var(--lime);background:#173224}
 .ed-chip.active{border-color:var(--egg);background:#274a36;color:var(--egg);box-shadow:0 0 0 2px var(--egg)}
 .ed-chip .icon{font-size:15px;line-height:1;margin-bottom:2px}
 /* the editor script marks the picked tile with .selected (this rule was missing, so nothing lit up) */
 .ed-chip.selected{border-color:var(--egg);background:#274a36;color:var(--egg);box-shadow:0 0 0 2px var(--egg)}
-.ed-color-dot{width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,.45)}
-.ed-sym-badge{font-weight:700;font-size:13px;line-height:1}
+.ed-color-dot{width:26px;height:16px;border-radius:4px;border:1px solid rgba(255,255,255,.45)}
+.ed-sym-badge{font-weight:700;font-size:19px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
 /* narrow screens (tablet portrait): stack the grid above the palette instead of clipping it */
 @media (max-width:920px){
@@ -3562,39 +3562,39 @@ function frame(ts) {
 
 const ED_PALETTE = {
   walls: [
-    { ch: '#', label: 'Stone', desc: 'Ancient stone wall', color: '#5a626a' },
-    { ch: '%', label: 'Vine', desc: 'Moss & vine wall', color: '#335c3b' },
-    { ch: 'B', label: 'Brick', desc: 'Red brick wall', color: '#7a3528' },
-    { ch: 'L', label: 'Lava', desc: 'Cracked basalt wall', color: '#6e2012' },
-    { ch: 'G', label: 'Gold', desc: 'Royal golden wall', color: '#b58b28' },
-    { ch: 'W', label: 'Wood', desc: 'Bark and timber wall', color: '#4a331c' },
-    { ch: 'R', label: 'Crag', desc: 'Volcanic crag wall', color: '#3d3234' },
-    { ch: 'M', label: 'Mud', desc: 'Swamp mud wall', color: '#333d2a' }
+    { ch: '#', label: 'Stone', desc: 'Ancient stone wall', color: '#6b7280', pattern: 'solid' },
+    { ch: '%', label: 'Vine', desc: 'Moss & vine wall', color: '#5a626a', pattern: 'stripes-v', accent: '#3f9152' },
+    { ch: 'B', label: 'Brick', desc: 'Red brick wall', color: '#8a3a2a', pattern: 'bricks', accent: '#4e2016' },
+    { ch: 'L', label: 'Lava', desc: 'Cracked basalt wall', color: '#241010', pattern: 'crack', accent: '#ff5522' },
+    { ch: 'G', label: 'Gold', desc: 'Royal golden wall', color: '#a9791f', pattern: 'shimmer', accent: '#f4d873' },
+    { ch: 'W', label: 'Wood', desc: 'Bark and timber wall', color: '#5c3d22', pattern: 'grain', accent: '#33210f' },
+    { ch: 'R', label: 'Crag', desc: 'Volcanic crag wall', color: '#4a4046', pattern: 'speckle', accent: '#8a7d74' },
+    { ch: 'M', label: 'Mud', desc: 'Swamp mud wall', color: '#3a3a22', pattern: 'speckle', accent: '#1c1a0e' }
   ],
   doors: [
-    { ch: '=', label: 'Door / Vine', desc: 'Doorway or nature vine curtain', color: '#2b7a8a' },
-    { ch: 'K', label: 'Key Gate', desc: 'Locked door or bone gate (requires key)', color: '#d4aa33' }
+    { ch: '=', label: 'Door / Vine', desc: 'Doorway or nature vine curtain', color: '#2f9db5', pattern: 'solid' },
+    { ch: 'K', label: 'Key Gate', desc: 'Locked door or bone gate (requires key)', color: '#e0b23c', pattern: 'solid' }
   ],
   props: [
-    { ch: '.', label: 'Floor', desc: 'Walkable open floor', color: '#16221c' },
-    { ch: 'T', label: 'Tree', desc: 'Solid pine tree obstacle', color: '#2f8a48' }
+    { ch: '.', label: 'Floor', desc: 'Walkable open floor', color: '#16221c', pattern: 'solid' },
+    { ch: 'T', label: 'Tree', desc: 'Solid pine tree obstacle', color: '#2f8a48', pattern: 'solid' }
   ],
   dinos: [
-    { ch: 'r', label: 'Raptor', desc: 'Fast pack hunter', color: '#46a365' },
-    { ch: 't', label: 'Trike', desc: 'Armored charging tank', color: '#c47833' },
-    { ch: 'p', label: 'Ptero', desc: 'Swooping flyer', color: '#ab4da8' },
-    { ch: 'c', label: 'Carno', desc: 'Fast horned stalker', color: '#c23838' },
-    { ch: 'b', label: 'Boreal', desc: 'Lurking swamp beast', color: '#2d8272' },
-    { ch: 'C', label: 'Carno Boss', desc: 'Sub-boss Carnotaurus', color: '#e62424' },
-    { ch: 'X', label: 'T-Rex Boss', desc: 'The King of Dinosaurs', color: '#ff4400' }
+    { ch: 'r', label: 'Raptor', desc: 'Fast pack hunter', color: '#46a365', pattern: 'solid' },
+    { ch: 't', label: 'Trike', desc: 'Armored charging tank', color: '#a3672a', pattern: 'solid' },
+    { ch: 'p', label: 'Ptero', desc: 'Swooping flyer', color: '#ab4da8', pattern: 'solid' },
+    { ch: 'c', label: 'Carno', desc: 'Fast horned stalker', color: '#c23838', pattern: 'solid' },
+    { ch: 'b', label: 'Boreal', desc: 'Lurking swamp beast', color: '#2d8272', pattern: 'solid' },
+    { ch: 'C', label: 'Carno Boss', desc: 'Sub-boss Carnotaurus', color: '#8a1030', pattern: 'solid' },
+    { ch: 'X', label: 'T-Rex Boss', desc: 'The King of Dinosaurs', color: '#ff4400', pattern: 'solid' }
   ],
   items: [
-    { ch: 'P', label: 'Player', desc: 'Player spawn point (unique)', color: '#b8dc30' },
-    { ch: 'E', label: 'Exit', desc: 'Level exit portal (unique)', color: '#3cd4c4' },
-    { ch: '$', label: 'Egg', desc: 'Collectible dinosaur egg', color: '#fbe458' },
-    { ch: 'm', label: 'Meat', desc: 'Health restoration (+28 HP)', color: '#ff6666' },
-    { ch: 'k', label: 'Key', desc: 'Golden door key', color: '#ffe040' },
-    { ch: 's', label: 'Star', desc: 'Extra roar charge (max 3)', color: '#48e0f5' }
+    { ch: 'P', label: 'Player', desc: 'Player spawn point (unique)', color: '#b8dc30', pattern: 'solid' },
+    { ch: 'E', label: 'Exit', desc: 'Level exit portal (unique)', color: '#3cd4c4', pattern: 'solid' },
+    { ch: '$', label: 'Egg', desc: 'Collectible dinosaur egg', color: '#fbe458', pattern: 'solid' },
+    { ch: 'm', label: 'Meat', desc: 'Health restoration (+28 HP)', color: '#ff6666', pattern: 'solid' },
+    { ch: 'k', label: 'Key', desc: 'Golden door key', color: '#f2b705', pattern: 'solid' },
+    { ch: 's', label: 'Star', desc: 'Extra roar charge (max 3)', color: '#4d9dff', pattern: 'solid' }
   ]
 };
 
@@ -3603,6 +3603,87 @@ for (const cat in ED_PALETTE) {
   for (const item of ED_PALETTE[cat]) {
     ED_TILE_MAP[item.ch] = item;
   }
+}
+
+// CSS swatch for the palette chips, echoing the same material texture drawTilePattern() paints on the grid
+function swatchCSS(item) {
+  const base = item.color, accent = item.accent || item.color;
+  switch (item.pattern) {
+    case 'stripes-v': return 'background:repeating-linear-gradient(90deg,' + accent + ' 0 3px,' + base + ' 3px 8px)';
+    case 'bricks': return 'background-color:' + base + ';background-image:repeating-linear-gradient(0deg,' + accent + ' 0 2px,transparent 2px 8px)';
+    case 'grain': return 'background:repeating-linear-gradient(95deg,' + accent + ' 0 1px,' + base + ' 1px 6px)';
+    case 'crack': return 'background:repeating-linear-gradient(55deg,' + accent + ' 0 1px,' + base + ' 1px 9px)';
+    case 'speckle': return 'background-color:' + base + ';background-image:radial-gradient(' + accent + ' 1px,transparent 1.5px);background-size:6px 6px';
+    case 'shimmer': return 'background:repeating-linear-gradient(45deg,' + accent + ' 0 2px,' + base + ' 2px 7px)';
+    default: return 'background:' + base;
+  }
+}
+
+// Canvas equivalent of swatchCSS(), drawn over a cell already filled with item.color
+function drawTilePattern(ctx, px, py, w, h, item) {
+  if (!item.pattern || item.pattern === 'solid') return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(px, py, w, h);
+  ctx.clip();
+  ctx.fillStyle = item.accent;
+  ctx.strokeStyle = item.accent;
+  switch (item.pattern) {
+    case 'stripes-v': {
+      const stripeW = Math.max(2, w * 0.28);
+      for (let sx = px - h; sx < px + w; sx += stripeW * 2.6) ctx.fillRect(sx, py, stripeW, h);
+      break;
+    }
+    case 'bricks': {
+      ctx.lineWidth = Math.max(1, w * 0.07);
+      const rowH = h / 3;
+      for (let ry = 1; ry < 3; ry++) {
+        ctx.beginPath(); ctx.moveTo(px, py + ry * rowH); ctx.lineTo(px + w, py + ry * rowH); ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(px + w / 2, py); ctx.lineTo(px + w / 2, py + rowH);
+      ctx.moveTo(px + w / 2, py + 2 * rowH); ctx.lineTo(px + w / 2, py + 3 * rowH);
+      ctx.stroke();
+      break;
+    }
+    case 'grain': {
+      ctx.lineWidth = Math.max(1, w * 0.06);
+      for (let gx = px + w * 0.22; gx < px + w; gx += w * 0.32) {
+        ctx.beginPath(); ctx.moveTo(gx, py); ctx.lineTo(gx + w * 0.06, py + h); ctx.stroke();
+      }
+      break;
+    }
+    case 'crack': {
+      ctx.lineWidth = Math.max(1, w * 0.09);
+      ctx.beginPath();
+      ctx.moveTo(px + w * 0.15, py + h * 0.08);
+      ctx.lineTo(px + w * 0.5, py + h * 0.5);
+      ctx.lineTo(px + w * 0.28, py + h * 0.92);
+      ctx.moveTo(px + w * 0.5, py + h * 0.5);
+      ctx.lineTo(px + w * 0.88, py + h * 0.7);
+      ctx.stroke();
+      break;
+    }
+    case 'speckle': {
+      for (let i = 0; i < 7; i++) {
+        const rx = px + ((i * 37) % 100) / 100 * w;
+        const ry = py + ((i * 53) % 100) / 100 * h;
+        ctx.beginPath(); ctx.arc(rx, ry, Math.max(1, w * 0.07), 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'shimmer': {
+      ctx.lineWidth = Math.max(1, w * 0.1);
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(px + i * w * 0.5 - w * 0.3, py + h);
+        ctx.lineTo(px + i * w * 0.5 + w * 0.7, py);
+        ctx.stroke();
+      }
+      break;
+    }
+  }
+  ctx.restore();
 }
 
 let edFloorIdx = 0;
@@ -3638,7 +3719,7 @@ function initEditorUI() {
       chip.className = 'ed-chip' + (item.ch === edActiveChar ? ' selected' : '');
       chip.dataset.ch = item.ch;
       chip.title = item.label + ' (' + item.ch + '): ' + item.desc;
-      chip.innerHTML = '<span class="ed-color-dot" style="background:' + item.color + '"></span>' +
+      chip.innerHTML = '<span class="ed-color-dot" style="' + swatchCSS(item) + '"></span>' +
                        '<span class="ed-sym-badge">' + item.ch + '</span>' +
                        '<span>' + item.label + '</span>';
       chip.addEventListener('click', function () {
@@ -3942,6 +4023,10 @@ function renderEditorGrid() {
       }
       edCtx.fillRect(px, py, cellW, cellH);
 
+      // Material texture (vine stripes, brick coursing, wood grain, etc.) so a tile's type
+      // reads at a glance, not just from its color or letter
+      if (!issue && char !== '.') drawTilePattern(edCtx, px, py, cellW, cellH, info);
+
       // Hazard pattern for invalid trees
       if (issue) {
         edCtx.save();
@@ -3965,11 +4050,15 @@ function renderEditorGrid() {
       if (char !== '.') {
         if (issue) {
           edCtx.fillStyle = '#ffffff';
-          edCtx.font = 'bold 12px monospace';
+          edCtx.font = 'bold ' + Math.round(cellH * 0.6) + 'px monospace';
           edCtx.fillText('⚠️', px + cellW / 2, py + cellH / 2);
         } else {
+          // A dark outline keeps the bigger letter legible against light backgrounds (gold, crag flecks, etc.)
+          edCtx.font = 'bold ' + Math.round(cellH * 0.68) + 'px monospace';
+          edCtx.lineWidth = Math.max(2, cellW * 0.12);
+          edCtx.strokeStyle = 'rgba(0,0,0,0.65)';
+          edCtx.strokeText(char, px + cellW / 2, py + cellH / 2);
           edCtx.fillStyle = '#ffffff';
-          edCtx.font = 'bold 11px monospace';
           edCtx.fillText(char, px + cellW / 2, py + cellH / 2);
         }
       }
