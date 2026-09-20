@@ -50,7 +50,8 @@ body{
 #ovTitle{font-size:clamp(46px,10vw,92px);font-weight:700;line-height:.94;margin:0;
   color:var(--egg);letter-spacing:-.02em;text-shadow:0 5px 0 #8a5a12,0 9px 24px rgba(0,0,0,.5)}
 /* an <svg> is a replaced element, so inset alone doesn't stretch it: give it an explicit box around the title */
-.claws{position:absolute;left:-10%;top:-14%;width:120%;height:128%;pointer-events:none}
+/* z-index:-1 puts the slashes behind all the menu text (still above the overlay's own background) */
+.claws{position:absolute;left:-10%;top:-14%;width:120%;height:128%;pointer-events:none;z-index:-1}
 .claws path{fill:none;stroke:var(--bone);stroke-width:7;stroke-linecap:round;opacity:.92}
 #ovSub{margin:14px 0 0;color:#a9cbb4;font-size:clamp(15px,2.4vw,19px);font-weight:400}
 #ovBody{margin:22px auto 0;max-width:56ch}
