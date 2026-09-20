@@ -220,6 +220,7 @@ body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
           <option value="canopy">Ceil: Canopy</option>
           <option value="cave">Ceil: Cave</option>
           <option value="temple">Ceil: Temple</option>
+          <option value="sky">Ceil: Sky</option>
         </select>
         <label style="font-size:13px;display:flex;align-items:center;gap:6px">
           Height: <span id="edCeilVal" style="color:var(--egg);font-weight:600">2.80x</span>
@@ -709,6 +710,39 @@ function texTemple() {
     ctx.beginPath(); ctx.moveTo(0, i * 14 + 4); ctx.lineTo(TW, i * 14 + 4); ctx.stroke();
   }
   speckle(ctx, rnd, 90, 0.2, 2);
+  return cv;
+}
+
+function texSky() {
+  const cv = newCv(TW, TW), ctx = cv.getContext('2d'), rnd = rngFrom(107);
+  const grad = ctx.createLinearGradient(0, 0, 0, TW);
+  grad.addColorStop(0, '#4a9fd8'); grad.addColorStop(1, '#8fd0ec');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, TW, TW);
+
+  // the ceiling repeats this tile once per grid unit, so clouds are drawn wrapped
+  // at all 9 neighbouring offsets to keep the seam between tiles invisible
+  function wrapped(x, y, draw) {
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) draw(x + dx * TW, y + dy * TW);
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const cx = rnd() * TW, cy = 6 + rnd() * (TW - 12);
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    for (let j = 0; j < 4; j++) {
+      const ox = (j - 1.5) * 7 + rnd() * 3, oy = rnd() * 3 - 1.5;
+      const rx = 6 + rnd() * 3, ry = 3.5 + rnd() * 1.5;
+      wrapped(cx + ox, cy + oy, function (wx, wy) {
+        ctx.beginPath(); ctx.ellipse(wx, wy, rx, ry, 0, 0, TAU); ctx.fill();
+      });
+    }
+  }
+  for (let i = 0; i < 5; i++) {
+    const x = rnd() * TW, y = rnd() * TW, rx = 10 + rnd() * 8, ry = 2 + rnd() * 2;
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    wrapped(x, y, function (wx, wy) {
+      ctx.beginPath(); ctx.ellipse(wx, wy, rx, ry, 0, 0, TAU); ctx.fill();
+    });
+  }
   return cv;
 }
 
@@ -1617,6 +1651,7 @@ function buildArt() {
   TEX.mud = bake(texMud()); TEX.crag = bake(texCrag());
   TEX.grass = bake(texGrass()); TEX.ash = bake(texAsh()); TEX.tile = bake(texTile());
   TEX.canopy = bake(texCanopy()); TEX.cave = bake(texCave()); TEX.temple = bake(texTemple());
+  TEX.sky = bake(texSky());
 
   const green = { body: '#5dbb63', belly: '#c8e6a0', dark: '#3f8f4a' };
 
@@ -1801,7 +1836,7 @@ const FACTORY_LEVELS = JSON.parse(JSON.stringify(LEVELS));
 /* Textures the engine really has. Anything else (a typo in an import, a hand-edited save) is
    replaced by the floor's own value instead of crashing the renderer. */
 const FLOOR_TEXS = ['grass', 'water', 'ash', 'tile', 'wood', 'mud'];
-const CEIL_TEXS = ['canopy', 'cave', 'temple'];
+const CEIL_TEXS = ['canopy', 'cave', 'temple', 'sky'];
 
 function padGrid(grid) {
   const rows = [];
@@ -1903,7 +1938,7 @@ let W = null;   // the live world
 
 function buildLevel(idx) {
   const L = LEVELS[idx];
-  const isOutdoor = (L.floor === 'grass' || L.floor === 'water' || L.ceil === 'canopy');
+  const isOutdoor = (L.floor === 'grass' || L.floor === 'water' || L.ceil === 'canopy' || L.ceil === 'sky');
   const w = {
     def: L, index: idx,
     tiles: new Uint8Array(MW * MH),
