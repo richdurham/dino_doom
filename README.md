@@ -18,9 +18,9 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 * **4-Angle Directional Dinosaur Sprites**:
   * Dinosaurs feature distinct front, side-profile (with dynamic flipping), and rear visual angles as they hunt, flee, or patrol.
 * **Prehistoric Roster with Unique AI**:
-  * 🟢 **Velociraptor**: Agile pack hunters that stalk and sprint to flank.
+  * 🟠 **Velociraptor**: Amber, tiger-striped pack hunters with a red feather crest. They weave side to side as they close in.
   * 🦏 **Triceratops**: Armored behemoths that charge with high knockback.
-  * 🦅 **Pterosaur**: Flying predators swooping down from overhead.
+  * 🦅 **Pterosaur**: Purple flyers that circle overhead, rear up with a screech, then dive-bomb in a straight line. Sidestep it!
   * 🐊 **Borealosuchus**: Prehistoric crocodilian lurkers lurking in the murky bayou.
   * 👹 **Carnotaurus (Sub-Boss)**: Fast, horned carnivore with a devastating charge.
   * 👑 **The Bone King (Boss)**: Colossal apex predator guarding the prehistoric Bone Throne.
