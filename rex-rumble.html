@@ -801,6 +801,15 @@ function eye(ctx, x, y, r, look, happy) {
   }
 }
 
+/* yellow eye with a vertical slit pupil: reads as reptile, not frog */
+function slitEye(ctx, x, y, r, hurt) {
+  if (hurt) { eye(ctx, x, y, r, 0, true); return; }
+  ell(ctx, x, y, r, r * 1.05); ink(ctx, '#ffd84a', 3.5);
+  ell(ctx, x, y + r * 0.05, r * 0.26, r * 0.85); ctx.fillStyle = INK; ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.beginPath(); ctx.arc(x - r * 0.35, y - r * 0.35, r * 0.18, 0, TAU); ctx.fill();
+}
+
 function toothRow(ctx, x0, x1, y, n, up) {
   ctx.fillStyle = '#fffaf0';
   const step = (x1 - x0) / n;
@@ -830,6 +839,37 @@ function clawHand(ctx, x, y, ang, scale, skin) {
   ctx.restore();
 }
 
+/* tiger stripes, clipped to the inside of a body ellipse so they never touch the outline */
+function stripeBars(ctx, x, y, rx, ry, rot, color, kind) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ell(ctx, 0, 0, rx - 2.4, ry - 2.4); ctx.clip();
+  ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.lineCap = 'butt';
+  if (kind === 'side') {
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath(); ctx.moveTo(i * rx * 0.36 - 3, -ry - 2); ctx.lineTo(i * rx * 0.36 + 3, ry * 0.3); ctx.stroke();
+    }
+  } else {
+    const inner = kind === 'back' ? 0.05 : 0.3, n = 4;
+    for (let i = 0; i < n; i++) {
+      const yy = -ry + 7 + i * (ry * 2 - 10) / n;
+      for (let s = -1; s <= 1; s += 2) {
+        ctx.beginPath(); ctx.moveTo(s * (rx + 2), yy - 5); ctx.lineTo(s * rx * inner, yy + 2); ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+/* a fan of feather quills. Each is [baseX, baseY, angle, length]; angle 0 points straight up. Draw it behind the head. */
+function quills(ctx, list, color) {
+  list.forEach(function (q) {
+    const bx = q[0], by = q[1], tx = bx + Math.sin(q[2]) * q[3], ty = by - Math.cos(q[2]) * q[3];
+    const nx = Math.cos(q[2]) * 3.6, ny = Math.sin(q[2]) * 3.6;
+    ctx.beginPath(); ctx.moveTo(bx - nx, by - ny); ctx.lineTo(tx, ty); ctx.lineTo(bx + nx, by + ny);
+    ctx.closePath(); ink(ctx, color, 3);
+  });
+}
+
 /* ---- raptor: the common chaser ---- */
 function drawRaptor(ctx, mode, phase, col, view) {
   view = view || 'front';
@@ -850,6 +890,7 @@ function drawRaptor(ctx, mode, phase, col, view) {
     ctx.strokeStyle = dark; ctx.lineWidth = 9; ctx.stroke();
     ell(ctx, 32, 86 - liftFar, 9, 4.5); ink(ctx, dark, 3.5);
     ell(ctx, 46, cy + 2, 17, 13, 0.15); ink(ctx, body, 5);
+    if (col.stripe) stripeBars(ctx, 46, cy + 2, 17, 13, 0.15, col.stripe, 'side');
     ell(ctx, 48, cy + 6, 12, 7, 0.15); ctx.fillStyle = belly; ctx.fill();
     const liftNear = Math.max(0, Math.sin(phase * TAU) * 7);
     const ny = 85 - liftNear;
@@ -871,6 +912,7 @@ function drawRaptor(ctx, mode, phase, col, view) {
     ctx.beginPath(); ctx.moveTo(50, cy - 6); ctx.quadraticCurveTo(58, cy - 16, 64, hy + 8);
     ctx.strokeStyle = INK; ctx.lineWidth = 20; ctx.stroke();
     ctx.strokeStyle = body; ctx.lineWidth = 15; ctx.stroke();
+    if (col.crest) quills(ctx, [[60, hy - 2, -1.15, 12], [62, hy - 3, -0.8, 12], [64, hy - 4, -0.42, 10]], col.crest);
     ell(ctx, 66, hy + 4, 15, 11, 0.1); ink(ctx, body, 4.5);
     const open = atk ? 14 : 3;
     ctx.beginPath();
@@ -895,12 +937,15 @@ function drawRaptor(ctx, mode, phase, col, view) {
       ell(ctx, hx + s * 3, fy + 3, 10, 5); ink(ctx, dark, 4);
     }
     ell(ctx, 48, cy, 18, 20); ink(ctx, body, 5);
+    if (col.stripe) stripeBars(ctx, 48, cy, 18, 20, 0, col.stripe, 'back');
     ctx.fillStyle = dark;
     for (let i = 0; i < 4; i++) ell(ctx, 48, cy - 14 + i * 8, 4, 2.5);
     const hy = 19 + bob * 0.7;
     ctx.beginPath(); ctx.moveTo(48, cy - 11); ctx.lineTo(48, hy + 6);
     ctx.strokeStyle = INK; ctx.lineWidth = 24; ctx.stroke();
     ctx.strokeStyle = body; ctx.lineWidth = 18; ctx.stroke();
+    if (col.crest) quills(ctx, [[36, hy - 1, -1.45, 11], [38, hy - 5, -1.0, 11], [41, hy - 8, -0.5, 8],
+      [60, hy - 1, 1.45, 11], [58, hy - 5, 1.0, 11], [55, hy - 8, 0.5, 8]], col.crest);
     ell(ctx, 48, hy, 14, 12); ink(ctx, body, 5);
   } else {
     ctx.beginPath();
@@ -920,9 +965,12 @@ function drawRaptor(ctx, mode, phase, col, view) {
       }
     }
     ell(ctx, 48, cy, 18, 20); ink(ctx, body, 5);
-    ell(ctx, 48, cy + 5, 11.5, 13); ctx.fillStyle = belly; ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,0.13)';
-    for (let i = 0; i < 3; i++) { ell(ctx, 33 + i, cy - 12 + i * 9, 4.5, 2.2, -0.45); ctx.fill(); }
+    if (col.stripe) stripeBars(ctx, 48, cy, 18, 20, 0, col.stripe, 'front');
+    ell(ctx, 48, cy + 5, col.stripe ? 9.5 : 11.5, 13); ctx.fillStyle = belly; ctx.fill();
+    if (!col.stripe) {
+      ctx.fillStyle = 'rgba(0,0,0,0.13)';
+      for (let i = 0; i < 3; i++) { ell(ctx, 33 + i, cy - 12 + i * 9, 4.5, 2.2, -0.45); ctx.fill(); }
+    }
     for (let i = 0; i < 2; i++) {
       const s = i ? 1 : -1;
       ctx.save(); ctx.translate(48 + s * 12, cy - 7);
@@ -943,6 +991,8 @@ function drawRaptor(ctx, mode, phase, col, view) {
     ctx.beginPath(); ctx.moveTo(48, cy - 11); ctx.lineTo(48, hy + 6);
     ctx.lineCap = 'round'; ctx.strokeStyle = INK; ctx.lineWidth = 25; ctx.stroke();
     ctx.strokeStyle = body; ctx.lineWidth = 19; ctx.stroke();
+    if (col.crest) quills(ctx, [[36, hy - 2, -1.45, 12], [37, hy - 6, -1.05, 12], [40, hy - 10, -0.55, 8],
+      [60, hy - 2, 1.45, 12], [59, hy - 6, 1.05, 12], [56, hy - 10, 0.55, 8]], col.crest);
     ell(ctx, 48, hy, 15, 13); ink(ctx, body, 5);
     const open = atk ? 15 : 4;
     ell(ctx, 48, hy + 9, 13, 9); ink(ctx, body, 5);
@@ -1118,7 +1168,7 @@ function drawBoreal(ctx, mode, phase, view) {
     ctx.moveTo(58, cy); ctx.lineTo(86, cy); ctx.lineTo(58, cy + 4 + open * 0.8);
     ctx.closePath(); ink(ctx, '#8e3b44', 3);
     toothRow(ctx, 58, 84, cy, 5, false);
-    eye(ctx, 56, cy - 7, 5.5, 0, hurt);
+    slitEye(ctx, 56, cy - 7, 5.5, hurt);
   } else if (view === 'back') {
     ctx.beginPath(); ctx.moveTo(48, cy + 4); ctx.lineTo(48, 90);
     ctx.strokeStyle = INK; ctx.lineWidth = 14; ctx.stroke();
@@ -1150,15 +1200,22 @@ function drawBoreal(ctx, mode, phase, view) {
     }
     ell(ctx, 48, cy, 26, 12); ink(ctx, body, 5);
     ell(ctx, 48, cy + 3, 18, 6); ctx.fillStyle = belly; ctx.fill();
+    for (let i = -3; i <= 3; i++) {     // armoured back scutes peeking out around the head
+      ctx.beginPath();
+      ctx.moveTo(48 + i * 8 - 4.5, cy - 8); ctx.lineTo(48 + i * 8, cy - 17 + Math.abs(i)); ctx.lineTo(48 + i * 8 + 4.5, cy - 8);
+      ctx.closePath(); ink(ctx, scutes, 3);
+    }
     const open = atk ? 12 : 3;
     ell(ctx, 48, cy - 2, 18, 9); ink(ctx, body, 4.5);
+    ctx.fillStyle = INK;
+    ctx.beginPath(); ctx.arc(43, cy - 3.5, 1.5, 0, TAU); ctx.arc(53, cy - 3.5, 1.5, 0, TAU); ctx.fill();
     ctx.beginPath();
     ctx.moveTo(34, cy + 1); ctx.quadraticCurveTo(48, cy + 1 + open * 0.2, 62, cy + 1);
     ctx.quadraticCurveTo(48, cy + 6 + open * 1.1, 34, cy + 1);
     ctx.closePath(); ink(ctx, '#8e3b44', 3);
     toothRow(ctx, 36, 60, cy + 2, 6, false);
-    eye(ctx, 38, cy - 8, 6.2, 0, hurt);
-    eye(ctx, 58, cy - 8, 6.2, 0, hurt);
+    slitEye(ctx, 38, cy - 8, 6.2, hurt);
+    slitEye(ctx, 58, cy - 8, 6.2, hurt);
   }
   ctx.restore();
 }
@@ -1618,7 +1675,8 @@ function buildArt() {
   TEX.grass = bake(texGrass()); TEX.ash = bake(texAsh()); TEX.tile = bake(texTile());
   TEX.canopy = bake(texCanopy()); TEX.cave = bake(texCave()); TEX.temple = bake(texTemple());
 
-  const green = { body: '#5dbb63', belly: '#c8e6a0', dark: '#3f8f4a' };
+  // amber with tiger stripes and a red crest: the old green raptor vanished into every forest floor
+  const amber = { body: '#f2a93b', belly: '#fff0c2', dark: '#c46a1d', stripe: '#6b3410', crest: '#d9402f' };
 
   function bakeDinoViews(name, sz, drawFn) {
     ['front', 'side', 'back'].forEach(function (v) {
@@ -1632,7 +1690,7 @@ function buildArt() {
     });
   }
 
-  bakeDinoViews('raptor', 96, function (c, m, p, v) { drawRaptor(c, m, p, green, v); });
+  bakeDinoViews('raptor', 96, function (c, m, p, v) { drawRaptor(c, m, p, amber, v); });
   bakeDinoViews('trike', 96, function (c, m, p, v) { drawTrike(c, m, p, v); });
   bakeDinoViews('ptero', 96, function (c, m, p, v) { drawPtero(c, m, p, v); });
   bakeDinoViews('carnotaurus', 96, function (c, m, p, v) { drawCarno(c, m, p, v); });
@@ -1890,6 +1948,10 @@ const DINOS = {
   carnotaurus: { spr: 'carnotaurus', hp: 380, speed: 2.3, dmg: 22, reach: 1.6, sight: 18, scale: 1.35, vOff: 0, pts: 1200, name: 'Carnotaurus', wind: 0.42, rest: 0.6, voice: 0 },
   borealosuchus: { spr: 'borealosuchus', hp: 180, speed: 1.05, dmg: 18, reach: 1.35, sight: 11, scale: 1.05, vOff: 0.22, pts: 450, name: 'Borealosuchus', wind: 0.35, rest: 0.8, voice: 1 },
   king: { spr: 'king', hp: 620, speed: 1.55, dmg: 17, reach: 1.9, sight: 22, scale: 2.3, vOff: 0, pts: 2500, name: 'The Bone King', wind: 0.55, rest: 0.75, voice: 3 }
+};
+
+const DOT = {   // minimap dot colours, matching each dino's sprite
+  raptor: '#ffb52e', trike: '#7fa6d6', ptero: '#b98cf0', carnotaurus: '#ff5040', borealosuchus: '#8fbf6a', king: '#ff5040'
 };
 
 const ITEMS = {
@@ -2937,6 +2999,7 @@ function updateDino(t, dt) {
   const spd = d.speed * (SET.easy ? 0.82 : 1);
 
   if (t.state === 'stun') {
+    t.swoop = 0;
     t.stun -= dt; t.frame = 3;
     if (t.stun <= 0) { t.state = 'chase'; t.t = 0; }
     return;
@@ -3084,6 +3147,39 @@ function updateDino(t, dt) {
     }
   }
 
+  // Pterosaur swoop: circles overhead, rears up with a screech (0.4s to dodge), then dives along a fixed line
+  if (t.type === 'ptero') {
+    if (!(t.swoop > 0)) {
+      t.swoopCd = (t.swoopCd === undefined ? 0.8 + Math.random() * 1.2 : t.swoopCd) - dt;
+      if (t.swoopCd <= 0 && dist > 3.2 && dist < 9 && losClear(t.x, t.y, P.x, P.y)) {
+        t.swoop = 1.05; t.swoopCd = 2 + Math.random() * 1.5;
+        SFX.growl(d.voice);
+      }
+    }
+    if (t.swoop > 0) {
+      const aiming = t.swoop > 0.65;
+      t.swoop -= dt;
+      if (aiming) {
+        t.vOff += (-0.66 - t.vOff) * Math.min(1, dt * 8);
+        t.frame = Math.sin(W.time * 22) > 0 ? 0 : 1;
+        t.angle = Math.atan2(dy, dx);
+        t.swoopX = dx / (dist || 1); t.swoopY = dy / (dist || 1);
+        return;
+      }
+      t.frame = 2;
+      t.vOff += (-0.05 - t.vOff) * Math.min(1, dt * 12);
+      const preX = t.x, preY = t.y;
+      moveCircle(t, t.swoopX * spd * 2.4 * dt, t.swoopY * spd * 2.4 * dt, 0.3);
+      if (dist <= d.reach + 0.3 && losClear(t.x, t.y, P.x, P.y)) {
+        hurtPlayer(d.dmg);
+        t.swoop = 0; t.state = 'rest'; t.t = -0.3;
+      } else if (t.swoop <= 0 || Math.hypot(t.x - preX, t.y - preY) < 0.0005) {
+        t.swoop = 0; t.state = 'rest'; t.t = -0.4;
+      }
+      return;
+    }
+  }
+
   if (dist <= d.reach && losClear(t.x, t.y, P.x, P.y)) {
     t.state = 'wind'; t.t = 0; t.hitDone = false;
     t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * dt);
@@ -3099,6 +3195,12 @@ function updateDino(t, dt) {
     // Agile lateral weave swings heading by ±40 degrees
     const weave = Math.sin(t.phase * 4.2) * 0.72;
     moveAng += weave;
+  } else if (t.type === 'ptero') {
+    // pterosaurs hold a ring around you while the next dive recharges: spiral in, circle, back off if you close the gap
+    if (!t.orbit) t.orbit = Math.random() < 0.5 ? 1 : -1;
+    if (dist > 5.5) moveAng += t.orbit * 0.6;
+    else if (dist < 3.6) moveAng += Math.PI - t.orbit * 0.6;
+    else moveAng += t.orbit * Math.PI / 2;
   }
 
   let stepX = Math.cos(moveAng) * spd * dt;
@@ -3401,7 +3503,7 @@ function drawMinimap(c) {
   for (let i = 0; i < W.things.length; i++) {
     const t = W.things[i];
     if (!t.alive || !W.seen[(t.y | 0) * MW + (t.x | 0)]) continue;
-    if (t.kind === 'dino' && t.state !== 'poof') c.fillStyle = '#ff6b5a';
+    if (t.kind === 'dino' && t.state !== 'poof') c.fillStyle = DOT[t.type] || '#ff6b5a';
     else if (t.kind === 'exit') c.fillStyle = '#7de08a';
     else if (t.kind === 'item' && t.type === 'key') c.fillStyle = '#fff3c4';
     else if (t.kind === 'item' && t.type === 'egg') c.fillStyle = '#ffd23f';
@@ -3580,7 +3682,7 @@ const ED_PALETTE = {
     { ch: 'T', label: 'Tree', desc: 'Solid pine tree obstacle', color: '#2f8a48' }
   ],
   dinos: [
-    { ch: 'r', label: 'Raptor', desc: 'Fast pack hunter', color: '#46a365' },
+    { ch: 'r', label: 'Raptor', desc: 'Fast pack hunter', color: '#f2a93b' },
     { ch: 't', label: 'Trike', desc: 'Armored charging tank', color: '#c47833' },
     { ch: 'p', label: 'Ptero', desc: 'Swooping flyer', color: '#ab4da8' },
     { ch: 'c', label: 'Carno', desc: 'Fast horned stalker', color: '#c23838' },
