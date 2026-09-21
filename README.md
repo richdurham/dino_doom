@@ -79,6 +79,26 @@ The game includes a full level creation suite built directly into the engine:
 
 ---
 
+## ✅ Checks
+
+The game has no build step and no dependencies, and neither do its checks:
+
+```sh
+node tools/check.js
+```
+
+It parses every inline script, boots the game headlessly (`tools/harness.js` stubs the DOM,
+the 2D canvas and Web Audio), runs **the in-game editor's own audit** over all five shipped
+floors, and plays 900 frames on each one with every dino awake — watching for exceptions,
+NaNs, and anything clipping out of the grid.
+
+The floor audit calls `getEditorValidation()` rather than reimplementing its rules, so it
+can't drift from what the editor tells you when you build a level yourself.
+
+GitHub Actions runs the same command on every pull request.
+
+---
+
 ## 📜 Audio Credits
 * Dinosaur Roar audio effect adapted from [BESTROFLMAN on FreeSound](https://freesound.org/people/BESTROFLMAN/sounds/212433/), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 * Procedural synthesizers for bites, footstep stomps, chomp impact, and the soundtrack, all generated in real time via the Web Audio API. Effects and music sit on separate buses, and the arrangement thickens while dinos are actually hunting you.
