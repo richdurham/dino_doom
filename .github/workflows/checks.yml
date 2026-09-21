@@ -1,0 +1,31 @@
+# Pre-merge checks for the game file. The game has no build step and no dependencies, so
+# this just runs tools/check.js on a bare Node: it parses the inline scripts, boots the
+# game headlessly, runs the in-game editor's own audit over the shipped floors, and plays
+# a burst of frames on each one.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Game checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run checks
+        run: node tools/check.js

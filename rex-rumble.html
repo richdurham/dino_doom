@@ -330,14 +330,20 @@ function bake(cv, wantFlash) {
   const tex = { w: w, h: h, shades: shades };
   if (wantFlash) {
     const fl = new Uint32Array(w * h);
+    const tl = new Uint32Array(w * h);
     for (let i = 0; i < w * h; i++) {
       const c = src[i], a = c >>> 24;
-      if (a < 24) { fl[i] = 0; continue; }
+      if (a < 24) { fl[i] = 0; tl[i] = 0; continue; }
       const r = 200 + (c & 255) * 0.22 | 0, g = 200 + (c >> 8 & 255) * 0.22 | 0,
         b = 190 + (c >> 16 & 255) * 0.22 | 0;
       fl[i] = (255 << 24) | (clamp(b, 0, 255) << 16) | (clamp(g, 0, 255) << 8) | clamp(r, 0, 255);
+      // the wind-up tint: hot red, so a strike you still have time to dodge reads at a glance
+      const tr = 190 + (c & 255) * 0.26 | 0, tg = 36 + (c >> 8 & 255) * 0.26 | 0,
+        tb = 26 + (c >> 16 & 255) * 0.24 | 0;
+      tl[i] = (255 << 24) | (clamp(tb, 0, 255) << 16) | (clamp(tg, 0, 255) << 8) | clamp(tr, 0, 255);
     }
     tex.flash = fl;
+    tex.tell = tl;
   }
   return tex;
 }
@@ -713,36 +719,63 @@ function texTemple() {
   return cv;
 }
 
+/* How many grid squares one sky tile is stretched across. At 1 (what every other ceiling
+   uses) the same handful of clouds lands in every single square and the sky reads as
+   wallpaper; spreading the tile over several squares is what buys it some sky to be
+   sparse in. `buildArt` hangs the matching texel scale on TEX.sky for the ceiling sweep. */
+const SKY_TILE_UNITS = 6;
+
 function texSky() {
-  const cv = newCv(TW, TW), ctx = cv.getContext('2d'), rnd = rngFrom(107);
-  const grad = ctx.createLinearGradient(0, 0, 0, TW);
-  grad.addColorStop(0, '#4a9fd8'); grad.addColorStop(1, '#8fd0ec');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, TW, TW);
+  const cv = newCv(TW, TW), ctx = cv.getContext('2d'), rnd = rngFrom(503);
 
-  // the ceiling repeats this tile once per grid unit, so clouds are drawn wrapped
-  // at all 9 neighbouring offsets to keep the seam between tiles invisible
-  function wrapped(x, y, draw) {
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) draw(x + dx * TW, y + dy * TW);
+  /* Flat, deliberately. The ceiling tiles this texture, so a gradient across it lands as a
+     hard light-to-dark band at every tile edge — which is what the seams in the sky were. */
+  ctx.fillStyle = '#5aa7dc';
+  ctx.fillRect(0, 0, TW, TW);
+
+  /* Clouds are cut out of a noise field rather than drawn as puffs. Each octave sits on a
+     lattice that wraps at the tile edge, so cloud carries straight across a seam instead of
+     stopping at one, and a high threshold leaves a few sparse shapes over open blue. */
+  function octave(cells) {
+    const g = new Float32Array(cells * cells);
+    for (let i = 0; i < g.length; i++) g[i] = rnd();
+    // the mask wraps the lattice, and works for samples pushed outside the tile
+    const at = function (cx, cy) { return g[(cy & (cells - 1)) * cells + (cx & (cells - 1))]; };
+    return function (x, y) {
+      const fx = x * cells / TW, fy = y * cells / TW;
+      const x0 = Math.floor(fx), y0 = Math.floor(fy);
+      const tx = fx - x0, ty = fy - y0;
+      const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+      const a = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * sx;
+      const b = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * sx;
+      return a + (b - a) * sy;
+    };
   }
+  const n2 = octave(2), n4 = octave(4), n8 = octave(8);
+  const warpX = octave(2), warpY = octave(4);
 
-  for (let i = 0; i < 4; i++) {
-    const cx = rnd() * TW, cy = 6 + rnd() * (TW - 12);
-    ctx.fillStyle = 'rgba(255,255,255,0.88)';
-    for (let j = 0; j < 4; j++) {
-      const ox = (j - 1.5) * 7 + rnd() * 3, oy = rnd() * 3 - 1.5;
-      const rx = 6 + rnd() * 3, ry = 3.5 + rnd() * 1.5;
-      wrapped(cx + ox, cy + oy, function (wx, wy) {
-        ctx.beginPath(); ctx.ellipse(wx, wy, rx, ry, 0, 0, TAU); ctx.fill();
-      });
+  const img = ctx.getImageData(0, 0, TW, TW), px = img.data;
+  for (let y = 0; y < TW; y++) {
+    for (let x = 0; x < TW; x++) {
+      // Shove the sample around before reading the field: straight noise gives round blobs,
+      // warped noise gives ragged wisps. The warp wraps as well, so this still tiles.
+      const wx = x + (warpX(x, y) - 0.5) * 16, wy = y + (warpY(x, y) - 0.5) * 16;
+      /* Part of the field is read along 45-degree axes. (x+y, y-x) maps the lattice onto
+         itself, so it wraps like everything else, but its shapes run diagonally and break
+         up the square grid the axis-aligned part would otherwise lay down. */
+      const dgx = wx + wy, dgy = wy - wx;
+      const v = (n2(wx, wy) * 0.36 + n4(wx, wy) * 0.36 + n8(wx, wy) * 0.28 +
+        (n2(dgx, dgy) * 0.36 + n4(dgx, dgy) * 0.36) * 0.7) / 1.504;
+      const t = (v - 0.62) / 0.15;           // only the peaks of the field become cloud
+      if (t <= 0) continue;
+      const a = (t >= 1 ? 1 : t * t * (3 - 2 * t)) * 0.85;   // soft shoulder, never fully opaque
+      const o = (y * TW + x) * 4;
+      px[o] += (252 - px[o]) * a;
+      px[o + 1] += (253 - px[o + 1]) * a;
+      px[o + 2] += (255 - px[o + 2]) * a;
     }
   }
-  for (let i = 0; i < 5; i++) {
-    const x = rnd() * TW, y = rnd() * TW, rx = 10 + rnd() * 8, ry = 2 + rnd() * 2;
-    ctx.fillStyle = 'rgba(255,255,255,0.16)';
-    wrapped(x, y, function (wx, wy) {
-      ctx.beginPath(); ctx.ellipse(wx, wy, rx, ry, 0, 0, TAU); ctx.fill();
-    });
-  }
+  ctx.putImageData(img, 0, 0);
   return cv;
 }
 
@@ -1709,6 +1742,8 @@ function buildArt() {
   TEX.grass = bake(texGrass()); TEX.ash = bake(texAsh()); TEX.tile = bake(texTile());
   TEX.canopy = bake(texCanopy()); TEX.cave = bake(texCave()); TEX.temple = bake(texTemple());
   TEX.sky = bake(texSky());
+  TEX.sky.unitScale = 64 / SKY_TILE_UNITS;      // texels per grid square; the ceiling sweep reads it
+  TEX.sky.flatLit = true;                       // open sky doesn't dim with distance the way a roof does
 
   // amber with tiger stripes and a red crest: the old green raptor vanished into every forest floor
   const amber = { body: '#f2a93b', belly: '#fff0c2', dark: '#c46a1d', stripe: '#6b3410', crest: '#d9402f' };
@@ -1757,37 +1792,37 @@ function buildArt() {
 }
 // Level data: generated grids. Legend in MAPKEY below.
 const LEVELS=[
-{name:'Verdant Canopy',ceilH:2.80,sub:'Towering pines and prehistoric thickets',floor:'grass',ceil:'canopy',boss:false,grid:[
+{name:'Verdant Canopy',ceilH:2.80,sub:'Open sky, towering pines, and something in the ferns',floor:'grass',ceil:'sky',boss:false,grid:[
 "%%%%%%%%%%%%%%%%%%%%%%%%",
 "%%..P......%%%....$..%%%",
-"%%...T..T...%%..T....%%%",
+"%%...T..T...%%..T..T.%%%",
 "%%....$....%%%%...T..p%%",
-"%%%%..r...%%%%%.......%%",
+"%%%%......%%%%%.......%%",
 "%%%%.....%%%%%%%..T...%%",
-"%%%..T.T...%%%%.......%%",
-"%%.......r..%%%...T...%%",
-"%%..$.......%%%....$..%%",
-"%%%.........%%%%%...%%%%",
+"%%%..T.T.r.%%%%.......%%",
+"%%..T.......%%%...TT..%%",
+"%%.T$.......%%%....$T.%%",
+"%%%.T.......%%%%%...%%%%",
 "%%%%%..T.T...%%%%...%%%%",
-"%%%%.........%%%..T...%%",
-"%%....$.......%.......%%",
-"%%.T.....r........T...%%",
-"%%%..T.......%%%...r..%%",
-"%%%%......%%%%%%..T...%%",
+"%%%%r......r.%%%..T...%%",
+"%%............%.....r.%%",
+"%%.T...........$..T...%%",
+"%%%..T.r.....%%%......%%",
+"%%%%......%%%%%%.rT...%%",
 "%%%%%....%%%%%%%..$..p%%",
-"%%%%......%%%%%%......%%",
-"%%...$.....%%%%%...m..%%",
-"%%..s..T....%%%...T...%%",
+"%%%%.T....%%%%%%......%%",
+"%%...$T....%%%%%...m..%%",
+"%%..s..T....%%%...Tr..%%",
 "%%.....T....%%%.......%%",
 "%%%.........%%%...T.E.%%",
-"%%%..r..$....%%.......%%",
+"%%%.....$T...%%.......%%",
 "%%%%%%%%%%%%%%%%%%%%%%%%"
 ]},
 {name:'Fernback Ruins',ceilH:2.20,sub:'Stomp around and find the way out',floor:'grass',ceil:'canopy',boss:false,grid:[
 "%%%%%%%%%%%%%%%%%%%%%%%%",
 "%%%%%%%%%%.m%%%%%%%%%%%%",
 "%%......$%..%........$%%",
-"%%.P...r.%..%...T...r.%%",
+"%%.P...r.%..%.r.T...r.%%",
 "%%..#....%..%...#.....%%",
 "%%...T...=..%......T..%%",
 "%%..T....%..%...r.....%%",
@@ -1797,42 +1832,42 @@ const LEVELS=[
 "%.....................m%",
 "%m.....................%",
 "%%%%%.%%%%..%%%%%.%%%%%%",
-"%%.......%..%........$%%",
+"%%.......%..%.......#$%%",
 "%%..T....%..%...T.....%%",
-"%%.....r.%..%...#.....%%",
+"%%.....r.%..%.r.#.....%%",
 "%%..#.......%.......E.%%",
-"%%.....T.%..%.........%%",
+"%%.....T.%..%.......r.%%",
 "%%.......%..%..t.$....%%",
 "%%.....#.%..%......#..%%",
 "%%.r.....%..%..T..r...%%",
-"%%$.....$%.r%.........%%",
+"%%$.....$%..%.........%%",
 "%%%%%%%%%%s.%%%%%%%%%%%%",
-"%%%%%%%%%%%%%%%%%%%%%%%%",
+"%%%%%%%%%%%%%%%%%%%%%%%%"
 ]},
 {name:'Murky Bayou',ceilH:3.00,sub:'Watch the ripples — something is swimming',floor:'water',ceil:'canopy',boss:false,grid:[
 "MMMMMMMMMMMMMMMMMMMMMMMM",
 "MM..P......MMM....$..MMM",
-"MM....T.....MM..T....MMM",
+"MM....T.....MM..T..T.MMM",
 "MMM...b....MMMM......pMM",
 "MMMM......MMMMM.......MM",
 "MMMM.....MMMMMMM......MM",
 "MMM...T....MMMM...T...MM",
-"MM..........MMM.......MM",
-"MM..$.......MMM.k..$..MM",
-"MMM.........MMMMM...MMMM",
+"MM..T.......MMM....T..MM",
+"MM.T$.......MMM.k..$T.MM",
+"MMM.T.......MMMMM...MMMM",
 "MMMMM..T.....MMMM...MMMM",
-"MMMM.........MMM......MM",
-"MM....$.......M...T...MM",
-"MM.......b............MM",
-"MMM..T.......MMM...r..MM",
-"MMMM......MMMMMM......MM",
-"MMMMM....MMMMMMM..$..bMM",
-"MMMM......MMMMMM......MM",
-"MM...$.....MMMMM...m..MM",
+"MMMM.........MMM.r....MM",
+"MM............M...T...MM",
+"MM.......b.....$.....rMM",
+"MMM..T.......MMM......MM",
+"MMMM......MMMMMM..T...MM",
+"MMMMM....MMMMMMM..$T.bMM",
+"MMMM.T....MMMMMM...r..MM",
+"MM...$T....MMMMM...m..MM",
 "MM..s.......MMMM.T....MM",
 "MM..........MMMM......MM",
 "MMMMMMMMMMMMMMMMMMMKMMMM",
-"MMM..b..r..........bE.MM",
+"MMM..b.............bE.MM",
 "MMMMMMMMMMMMMMMMMMMMMMMM"
 ]},
 {name:'Bubbling Basalt',ceilH:2.40,sub:'The horned terror hunts in the volcanic heat',floor:'ash',ceil:'cave',boss:true,grid:[
@@ -1841,7 +1876,7 @@ const LEVELS=[
 "LL.P..rLLLLLLLLLL.r.k.LL",
 "LL..#..LLLLLLLLLL....rLL",
 "LL.....LLLLLLLLLL..#..LL",
-"LL$...$LLLLLLLLLL$...$LL",
+"LL$r..$LLLLLLLLLL$...$LL",
 "LLLL=LLLLLLLLLLLLLL=LLLL",
 "LLm....r........r...p.LL",
 "LL.LLLLLLLL..LLLLLLLLsLL",
@@ -1859,7 +1894,7 @@ const LEVELS=[
 "LL..#..LLLLLLLLLLm....LL",
 "LL$..r.LLLLLLLLLL.$...LL",
 "LLLLLLLLLLLLLLLLLLLLLLLL",
-"LLLLLLLLLLLLLLLLLLLLLLLL",
+"LLLLLLLLLLLLLLLLLLLLLLLL"
 ]},
 {name:'The Bone Throne',ceilH:3.20,sub:'Somebody big lives up there',floor:'tile',ceil:'temple',boss:true,grid:[
 "GGGGGGGGGGGGGGGGGGGGGGGG",
@@ -1885,7 +1920,7 @@ const LEVELS=[
 "GGG$.......r........$GGG",
 "GGG..r...GG..GG...r..GGG",
 "GGGGGGGGGGGPmGGGGGGGGGGG",
-"GGGGGGGGGGGGGGGGGGGGGGGG",
+"GGGGGGGGGGGGGGGGGGGGGGGG"
 ]},
 ];
 // Pristine factory copy of all levels for editor reset
@@ -1977,7 +2012,7 @@ function initRender() {
 
 /* --------------------------------------------------------------- levels */
 const DINOS = {
-  raptor: { spr: 'raptor', hp: 55, speed: 2.05, dmg: 9, reach: 1.25, sight: 15, scale: 0.92, vOff: 0, pts: 100, name: 'Raptor', wind: 0.42, rest: 0.55, voice: 0 },
+  raptor: { spr: 'raptor', hp: 55, speed: 2.05, dmg: 9, reach: 1.25, sight: 15, scale: 0.92, vOff: 0, pts: 100, name: 'Raptor', wind: 0.44, rest: 0.35, voice: 0 },
   trike: { spr: 'trike', hp: 135, speed: 1.15, dmg: 15, reach: 1.45, sight: 13, scale: 1.05, vOff: 0, pts: 250, name: 'Triceratops', wind: 0.62, rest: 0.9, voice: 1 },
   ptero: { spr: 'ptero', hp: 42, speed: 2.75, dmg: 7, reach: 1.3, sight: 17, scale: 0.85, vOff: -0.42, pts: 150, name: 'Pterosaur', wind: 0.34, rest: 0.5, voice: 2 },
   carnotaurus: { spr: 'carnotaurus', hp: 380, speed: 2.3, dmg: 22, reach: 1.6, sight: 18, scale: 1.35, vOff: 0, pts: 1200, name: 'Carnotaurus', wind: 0.42, rest: 0.6, voice: 0 },
@@ -2014,6 +2049,8 @@ function buildLevel(idx) {
     keyDoorTex: isOutdoor ? TEX.bonegate : TEX.keydoor,
     eggsTotal: 0, eggs: 0, scared: 0, dinosTotal: 0,
     hasKey: false, keyNeeded: false, boss: L.boss, bossAlive: false,
+    // only one raptor leaves the circle at a time, so a pack reads as a hunt, not a blender
+    packPounce: 0,
     spawn: { x: 1.5, y: 1.5 }, exit: null, time: 0
   };
   const free = [];
@@ -2146,15 +2183,25 @@ function spawnTree(w, x, y) {
   w.solids.push(tree);
 }
 
+/* Raptors fan out as they close in. Handing each one a different bearing offset as it
+   spawns is what keeps a pack from collapsing into a single-file charge. */
+const RAPTOR_FLANK = [0, 0.95, -0.95, 0.5, -0.5];
+
 function spawnDino(w, type, x, y, isBoss) {
   const d = DINOS[type];
   const hp = isBoss ? (d.hp * 1.4 | 0) : d.hp;
+  let nth = 0;
+  if (type === 'raptor') for (let i = 0; i < w.things.length; i++) if (w.things[i].type === 'raptor') nth++;
   w.things.push({
     kind: 'dino', type: type, def: d, x: x, y: y, hp: hp, maxhp: hp,
     spr: d.spr, frame: 0, scale: d.scale * (isBoss ? 1.2 : 1), vOff: d.vOff, alive: true,
     state: 'sleep', t: 0, phase: Math.random(), flash: 0, stun: 0,
     hitDone: false, bob: Math.random() * TAU, angle: Math.random() * TAU,
-    isBoss: !!isBoss
+    isBoss: !!isBoss,
+    // wind-up bookkeeping: `tell` drives the red pulse, `intCd` stops claws chaining staggers
+    tell: 0, intCd: 0,
+    crouch: 0, leap: 0, backoff: 0, coil: 0, rearing: 0,
+    flank: type === 'raptor' ? RAPTOR_FLANK[nth % RAPTOR_FLANK.length] : 0
   });
   w.dinosTotal++;
 }
@@ -2240,6 +2287,12 @@ function renderWorld(cam) {
   const rdx0 = dirX - planeX, rdy0 = dirY - planeY;
   const rdx1 = dirX + planeX, rdy1 = dirY + planeY;
   const fTex = W.floorTex, cTex = W.ceilTex;
+  // texels per grid square for the ceiling: 64 (one tile per square) unless the texture
+  // asks to be stretched further, as the sky does
+  const cScale = cTex.unitScale || 64;
+  /* Ceilings dim with distance, which on open sky only shows up as bands of blue marching
+     back to the horizon. A flat-lit ceiling takes the same bank at every distance. */
+  const cFlat = cTex.flatLit ? cTex.shades[SHADES - 1] : null;
 
   for (let y = horizon + 1; y < RH; y++) {
     const p = y - horizon;
@@ -2256,12 +2309,12 @@ function renderWorld(cam) {
   for (let y = 0; y < horizon; y++) {
     const p = horizon - y;
     const rowDist = ((ceilH - eyeH) * RH) / p;
-    const bank = cTex.shades[shadeIdx(rowDist)];
+    const bank = cFlat || cTex.shades[shadeIdx(rowDist)];
     const stx = rowDist * (rdx1 - rdx0) / RW, sty = rowDist * (rdy1 - rdy0) / RW;
     let fx = posX + rowDist * rdx0, fy = posY + rowDist * rdy0;
     const o = y * RW;
     for (let x = 0; x < RW; x++) {
-      buf[o + x] = bank[((((fy * 64) | 0) & 63) << 6) + (((fx * 64) | 0) & 63)];
+      buf[o + x] = bank[((((fy * cScale) | 0) & 63) << 6) + (((fx * cScale) | 0) & 63)];
       fx += stx; fy += sty;
     }
   }
@@ -2381,7 +2434,10 @@ function renderWorld(cam) {
     const cy = horizon + vMove;
     let y0 = (cy - size / 2) | 0, y1 = y0 + size;
     const x0 = (screenX - size / 2) | 0, x1 = x0 + size;
-    const pix = (t.flash > 0 && frame.flash) ? frame.flash : frame.shades[shadeIdx(tY)];
+    // a hit flash wins; otherwise a dino winding up pulses red until the blow lands
+    const pix = (t.flash > 0 && frame.flash) ? frame.flash
+      : (t.tell > 0 && frame.tell && Math.sin(W.time * 34) > -0.35) ? frame.tell
+        : frame.shades[shadeIdx(tY)];
     const tstep = sw / size;
     let ty0 = 0;
     if (y0 < 0) { ty0 = -y0 * tstep; y0 = 0; }
@@ -2444,8 +2500,8 @@ function saveSet() {
 }
 
 /* --------------------------------------------------------------- audio */
-let AC = null, master = null, noiseBuf = null;
-let musicOn = false, nextNote = 0, step = 0;
+let AC = null, master = null, sfxBus = null, musicBus = null, noiseBuf = null;
+let musicOn = false, nextNote = 0, step = 0, musicHeat = 0;
 
 let roarAudio = null;
 const ROAR_SRC = 'sounds/212433__bestroflman__large-dinosaur-roar.mp3';
@@ -2473,6 +2529,10 @@ function audioStart() {
   master = AC.createGain();
   master.gain.value = 0.55;
   master.connect(AC.destination);
+  // Effects and music ride their own buses. The mix stays balanced whatever is happening,
+  // and turning the sound effects off no longer takes the soundtrack down with them.
+  sfxBus = AC.createGain(); sfxBus.gain.value = 1; sfxBus.connect(master);
+  musicBus = AC.createGain(); musicBus.gain.value = 0.7; musicBus.connect(master);
   const n = AC.sampleRate * 1.2;
   noiseBuf = AC.createBuffer(1, n, AC.sampleRate);
   const d = noiseBuf.getChannelData(0);
@@ -2480,8 +2540,10 @@ function audioStart() {
   nextNote = AC.currentTime;
 }
 
-function tone(f0, f1, dur, type, vol, delay) {
-  if (!AC || !SET.sfx) return;
+function tone(f0, f1, dur, type, vol, delay, bus) {
+  if (!AC) return;
+  const out = bus || sfxBus;
+  if (out === musicBus ? !SET.music : !SET.sfx) return;
   const t = AC.currentTime + (delay || 0);
   const o = AC.createOscillator(), g = AC.createGain();
   o.type = type || 'square';
@@ -2490,12 +2552,14 @@ function tone(f0, f1, dur, type, vol, delay) {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.012);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(master);
+  o.connect(g); g.connect(out);
   o.start(t); o.stop(t + dur + 0.05);
 }
 
-function noiseHit(dur, vol, freq, delay, type) {
-  if (!AC || !SET.sfx) return;
+function noiseHit(dur, vol, freq, delay, type, bus) {
+  if (!AC) return;
+  const out = bus || sfxBus;
+  if (out === musicBus ? !SET.music : !SET.sfx) return;
   const t = AC.currentTime + (delay || 0);
   const s = AC.createBufferSource(); s.buffer = noiseBuf;
   const f = AC.createBiquadFilter();
@@ -2504,14 +2568,57 @@ function noiseHit(dur, vol, freq, delay, type) {
   const g = AC.createGain();
   g.gain.setValueAtTime(vol, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(f); f.connect(g); g.connect(master);
+  s.connect(f); f.connect(g); g.connect(out);
   s.start(t); s.stop(t + dur + 0.05);
 }
 
 const SFX = {
-  claw: function () { noiseHit(0.16, 0.30, 2600, 0, 'highpass'); tone(520, 240, 0.12, 'triangle', 0.1); },
-  bite: function () { noiseHit(0.12, 0.28, 1400); tone(150, 60, 0.16, 'square', 0.22); tone(120, 50, 0.18, 'sawtooth', 0.14, 0.06); },
-  hit: function () { tone(420, 180, 0.1, 'square', 0.2); noiseHit(0.08, 0.16, 900); },
+  // Three quick rips, high and dry. The swipe should sound light next to the bite.
+  claw: function () {
+    noiseHit(0.13, 0.30, 3600, 0, 'highpass');
+    noiseHit(0.10, 0.20, 2400, 0.025, 'bandpass');
+    noiseHit(0.08, 0.13, 1700, 0.05, 'bandpass');
+    tone(620, 240, 0.12, 'triangle', 0.1);
+  },
+  // The swing: jaws yawn open, then snap shut right about when the bite lands.
+  bite: function () {
+    noiseHit(0.18, 0.10, 620, 0, 'lowpass');
+    tone(70, 120, 0.20, 'sine', 0.12);
+    noiseHit(0.09, 0.30, 2200, 0.20, 'bandpass');
+    tone(190, 55, 0.18, 'square', 0.20, 0.20);
+    tone(120, 40, 0.24, 'sawtooth', 0.15, 0.23);
+  },
+  /* The payoff when those jaws close on something: a bone snap, wet grit, then a low thud
+     you feel more than hear. `big` is the punished bite, which gets an extra octave down. */
+  chomp: function (big) {
+    const v = big ? 1.3 : 1;
+    noiseHit(0.05, 0.36 * v, 4200, 0, 'bandpass');
+    noiseHit(0.05, 0.30 * v, 2600, 0.03, 'bandpass');
+    for (let i = 0; i < 4; i++) noiseHit(0.04, (0.22 - i * 0.04) * v, 1600 - i * 280, 0.065 + i * 0.04, 'bandpass');
+    noiseHit(0.26, 0.28 * v, 560, 0.015, 'lowpass');
+    tone(105, 34, 0.26, 'sawtooth', 0.22 * v, 0.02);
+    tone(62, 28, 0.36, 'sine', 0.30 * v, 0.03);
+    if (big) tone(44, 24, 0.50, 'sine', 0.26, 0.05);
+  },
+  hit: function () { tone(420, 180, 0.1, 'square', 0.2); noiseHit(0.09, 0.2, 1100); noiseHit(0.16, 0.12, 420, 0.02, 'lowpass'); },
+  // A dino drawing breath to strike: a rising hiss you can hear coming and step away from.
+  tell: function (v) {
+    const b = [300, 190, 430, 150][v || 0];
+    tone(b * 0.55, b * 1.7, 0.24, 'sawtooth', 0.09);
+    noiseHit(0.22, 0.13, 820, 0, 'bandpass');
+  },
+  // A raptor leaving the ground.
+  pounce: function () {
+    tone(760, 1500, 0.13, 'sawtooth', 0.13);
+    tone(1100, 620, 0.16, 'square', 0.07, 0.1);
+    noiseHit(0.12, 0.14, 2600, 0, 'highpass');
+  },
+  // Claws landing hard enough to knock a wind-up off its rails.
+  parry: function () {
+    tone(880, 1320, 0.09, 'square', 0.18);
+    tone(1320, 990, 0.12, 'triangle', 0.12, 0.07);
+    noiseHit(0.09, 0.18, 3200, 0, 'highpass');
+  },
   scare: function () { tone(520, 520, 0.08, 'square', 0.16); tone(700, 700, 0.08, 'square', 0.16, 0.08); tone(920, 1100, 0.16, 'square', 0.16, 0.16); },
   hurt: function () { tone(300, 110, 0.22, 'sawtooth', 0.22); noiseHit(0.18, 0.2, 700); },
   pick: function () { tone(660, 660, 0.07, 'square', 0.14); tone(880, 880, 0.09, 'square', 0.14, 0.07); },
@@ -2545,28 +2652,98 @@ const SFX = {
   win: function () { [523, 659, 784, 1046, 784, 1046].forEach(function (f, i) { tone(f, f, 0.16, 'square', 0.18, i * 0.13); }); }
 };
 
-const BASSLINE = [0, 0, 7, 0, 5, 0, 7, 3];
-const LEADLINE = [12, -1, 15, 12, 19, -1, 17, 15, 12, -1, 10, 12, 15, -1, 19, -1];
+/* ---- soundtrack ---------------------------------------------------------
+   A sixteen-step riff over a four-bar chord cycle, with a kit, a pad and a
+   counter-melody stacked on it. The arrangement thickens while dinos are
+   actually hunting you (`musicHeat`), so an empty floor sounds empty and a
+   pack closing in sounds like one. Everything goes to `musicBus`. */
+const MUSIC_ROOTS = [55, 49, 43.65, 58.27, 51.91];                  // one per floor
+const PROG = [[0, 7, 15], [-2, 5, 12], [3, 10, 15], [-4, 3, 14]];   // bar chords, semitones off the root
+const BASSLINE = [0, 0, 7, 0, 5, 0, 7, 3, 0, 0, 10, 0, 5, 7, 3, 0];
+const LEAD_A = [12, -1, 15, 12, 19, -1, 17, 15, 12, -1, 10, 12, 15, -1, 19, -1];
+const LEAD_B = [19, -1, 22, 19, 17, -1, 15, 17, 19, -1, 24, 22, 19, 17, 15, -1];
+const KICK = [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0];
+const SNARE = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1];
+const HAT = [2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 2, 1, 1, 1];       // 2 = accented
+
+function kick(delay, vol) {
+  tone(132, 38, 0.17, 'sine', 0.52 * vol, delay, musicBus);
+  noiseHit(0.035, 0.16 * vol, 260, delay, 'lowpass', musicBus);
+}
+function snare(delay, vol) {
+  noiseHit(0.13, 0.22 * vol, 1900, delay, 'bandpass', musicBus);
+  noiseHit(0.05, 0.14 * vol, 320, delay, 'lowpass', musicBus);
+  tone(210, 150, 0.09, 'triangle', 0.11 * vol, delay, musicBus);
+}
+function hat(delay, vol) {
+  noiseHit(0.035, 0.075 * vol, 9000, delay, 'highpass', musicBus);
+}
 
 function musicTick() {
   if (!AC || !SET.music || mode !== 'play') return;
-  const bpm = 118, spb = 60 / bpm / 2;
+  const bpm = 124, spb = 60 / bpm / 2;          // one step is an eighth note
   // After a pause or a hidden tab the clock has run on; skip the missed beats instead of scheduling them all at once.
   if (nextNote < AC.currentTime) nextNote = AC.currentTime + 0.05;
+  const root = MUSIC_ROOTS[curLevel % MUSIC_ROOTS.length];
   while (nextNote < AC.currentTime + 0.3) {
-    const root = [55, 49, 43.65, 58.27, 51.91][curLevel % 5];
-    const b = BASSLINE[step % BASSLINE.length];
-    tone(root * Math.pow(2, b / 12), root * Math.pow(2, b / 12), spb * 0.85, 'triangle', 0.16,
-      nextNote - AC.currentTime);
-    const l = LEADLINE[step % LEADLINE.length];
-    if (l >= 0) tone(root * 2 * Math.pow(2, l / 12), root * 2 * Math.pow(2, l / 12),
-      spb * 0.6, 'square', 0.055, nextNote - AC.currentTime);
-    if (step % 4 === 0) noiseHit(0.06, 0.1, 5000, nextNote - AC.currentTime, 'highpass');
+    const d = nextNote - AC.currentTime;
+    const sp = step % 16, bar = (step >> 4) % 4, chord = PROG[bar];
+    const heat = musicHeat;
+
+    // bass: the riff, rooted on this bar's chord, with an octave-low pulse per half-bar
+    const bf = root * Math.pow(2, (chord[0] + BASSLINE[sp]) / 12);
+    tone(bf, bf, spb * 0.9, 'triangle', 0.17, d, musicBus);
+    if (sp % 8 === 0) tone(bf * 0.5, bf * 0.5, spb * 3.6, 'sine', 0.13, d, musicBus);
+
+    // pad: one sustained chord a bar, sitting behind everything else
+    if (sp === 0) chord.forEach(function (iv, i) {
+      const f = root * 2 * Math.pow(2, iv / 12);
+      tone(f, f, spb * 7.4, 'triangle', 0.045 + i * 0.006, d, musicBus);
+    });
+
+    // lead: the tune, answered by a second phrase over the back half of the cycle
+    const l = (bar < 2 ? LEAD_A : LEAD_B)[sp];
+    if (l >= 0) {
+      const f = root * 4 * Math.pow(2, (l + chord[0]) / 12);
+      tone(f, f, spb * 0.55, 'square', 0.035 + heat * 0.045, d, musicBus);
+      // a hair of detune, a hair late: two oscillators sound far wider than one
+      tone(f * 1.005, f * 1.005, spb * 0.5, 'triangle', 0.02 + heat * 0.02, d + 0.012, musicBus);
+    }
+
+    // kit — the off-beat hats only join once something is after you
+    if (KICK[sp]) kick(d, 0.9);
+    if (SNARE[sp]) snare(d, 0.85);
+    if (HAT[sp] === 2) hat(d, 1);
+    else if (HAT[sp] && heat > 0.25) hat(d, 0.6);
+
+    // a tom fill rounds off the four-bar cycle
+    if (bar === 3 && sp >= 13) {
+      const f = [150, 118, 92][sp - 13];
+      tone(f, f * 0.55, 0.16, 'sine', 0.26, d, musicBus);
+      noiseHit(0.07, 0.10, 900, d, 'bandpass', musicBus);
+    }
+
+    // when the floor really is after you, a fifth drones underneath
+    if (heat > 0.55 && sp % 4 === 0) {
+      const f = root * 0.5 * Math.pow(2, (chord[0] + 7) / 12);
+      tone(f, f, spb * 3.6, 'sawtooth', 0.012 + 0.03 * (heat - 0.55), d, musicBus);
+    }
+
     nextNote += spb; step++;
   }
 }
 
 /* ------------------------------------------------------------- messages */
+/* Combat tips fire on a mechanic, not on an event, so in a pack fight the same line can
+   come up several times a second. Rate-limit them per line and keep the screen readable. */
+const tipAt = {};
+function tip(key, text) {
+  if (!W) return;
+  if (tipAt[key] !== undefined && Math.abs(W.time - tipAt[key]) < 5) return;
+  tipAt[key] = W.time;
+  say(text);
+}
+
 function say(text, big) {
   msgs.push({ text: text, t: 0, life: big ? 2.6 : 1.9, big: !!big });
   if (msgs.length > 3) msgs.shift();
@@ -2786,11 +2963,14 @@ function titleScreen() {
   overlay('Rex Rumble', 'Five floors of trouble. One very short pair of arms.',
     '<div class="how">' +
     '<p><b>Move</b> W A S D or the arrow keys. <b>Look</b> move the mouse.</p>' +
-    '<p><b>Claw</b> left click or F — quick swipe. <b>Bite</b> right click or space — slow but mighty.</p>' +
+    '<p><b>Claw</b> left click or F — fast and wide, and it knocks a dino off a strike it has started.</p>' +
+    '<p><b>Bite</b> right click or space — slow, and it roots you. Double damage on a dino already committed.</p>' +
+    '<p>A dino <b>flashing red</b> is winding up. Step out of the line, then bite it.</p>' +
     '<p><b>Roar</b> R — freezes every dino nearby. Stars give you another one.</p>' +
     '<p>Golden eggs are points, meat is lunch, and the green footprint is the way out.</p>' +
     '<p class="mob"><b>Walk</b> drag anywhere on the left side. <b>Look</b> drag the right side, up and down too.</p>' +
     '<p class="mob"><b>Claw</b>, <b>Bite</b> and <b>Roar</b> are the buttons at the bottom right. <b>Pause</b> is the II button.</p>' +
+    '<p class="mob">Claw is fast and interrupts. Bite is slow, but does double damage to a dino <b>flashing red</b>.</p>' +
     '<p class="mob">Golden eggs are points, meat is lunch, and the green footprint is the way out.</p>' +
     '</div>' + best,
     [
@@ -2899,7 +3079,18 @@ function gameOver() {
     { label: 'Back to the start', ghost: true, go: titleScreen }]);
 }
 
-/* -------------------------------------------------------------- combat */
+/* --------------------------------------------------------------- combat
+   Two attacks that are worth different things, rather than one that is simply better:
+
+   Claw  — fast, wide, three targets, and it lands early enough in the swing to knock a
+           dino off a strike it has already started. The safe poke, and your answer to a
+           wind-up you spotted too late to walk away from.
+   Bite  — slow, narrow, and it roots you while the jaws swing, but it does DOUBLE damage
+           to a dino already committed to its own move. Reading the red flash and biting
+           into it beats clawing; biting on reflex does not.
+
+   Per second the claw is slightly ahead of an unpunished bite, so spamming the big attack
+   is the worse habit — the bite only pays once you are picking your moment. */
 function attack(kind) {
   if (mode !== 'play' || P.atk) return;
   const isBite = kind === 'bite';
@@ -2909,14 +3100,14 @@ function attack(kind) {
     at: isBite ? 0.26 : 0.13,
     reach: isBite ? 2.05 : 1.55,
     arc: isBite ? 0.76 : 0.52,
-    dmg: isBite ? 64 : 25,
+    dmg: isBite ? 46 : 24,
     max: isBite ? 2 : 3
   };
   isBite ? SFX.bite() : SFX.claw();
 }
 
 function resolveAttack(a) {
-  let hits = 0;
+  let hits = 0, punished = false;
   for (let i = 0; i < W.things.length; i++) {
     const t = W.things[i];
     if (t.kind !== 'dino' || !t.alive || t.state === 'poof') continue;
@@ -2925,14 +3116,16 @@ function resolveAttack(a) {
     if (d > a.reach + t.scale * 0.35) continue;
     if ((dx * P.dirX + dy * P.dirY) / (d || 1) < a.arc) continue;
     if (!losClear(P.x, P.y, t.x, t.y)) continue;      // no biting through walls or trees
-    hurtDino(t, a.dmg, a.kind);
+    const punish = a.kind === 'bite' && dinoCommitted(t);
+    hurtDino(t, punish ? a.dmg * 2 : a.dmg, a.kind, punish);
+    if (punish) punished = true;
     if (++hits >= a.max) break;
   }
-  if (hits) { shake = Math.max(shake, a.kind === 'bite' ? 7 : 3.5); }
+  if (hits) { shake = Math.max(shake, punished ? 10 : a.kind === 'bite' ? 7 : 3.5); }
   else SFX.bonk();
 }
 
-function hurtDino(t, dmg, kind) {
+function hurtDino(t, dmg, kind, punish) {
   let finalDmg = dmg;
   if (t.type === 'trike') {
     const toPlayerX = P.x - t.x, toPlayerY = P.y - t.y;
@@ -2950,7 +3143,23 @@ function hurtDino(t, dmg, kind) {
   t.hp -= finalDmg;
   t.flash = 0.16;
   if (t.state === 'sleep') wake(t);
-  SFX.hit();
+  if (kind === 'bite') {
+    SFX.chomp(punish);
+    if (punish && t.hp > 0) tip('punish', 'Caught it mid-swing — double damage!');
+  } else SFX.hit();
+
+  /* A claw is quick enough to knock a dino off a strike it has already begun. The cooldown
+     is what keeps that from becoming a way to hold a whole pack still indefinitely. */
+  if (kind === 'claw' && t.hp > 0 && !(t.intCd > 0) && t.state !== 'stun' && dinoTelegraphing(t)) {
+    t.intCd = 1.8;
+    t.tell = 0; t.hitDone = true;
+    t.pawing = 0; t.crouch = 0; t.coil = 0; t.rearing = 0;
+    if (t.type === 'ptero') { t.swoop = 0; t.vOff = t.def.vOff; }   // knocked out of its dive
+    t.state = 'rest'; t.t = -0.2;
+    SFX.parry();
+    tip('stagger', 'Clawed it off its strike!');
+  }
+
   const kx = (t.x - P.x), ky = (t.y - P.y), kd = Math.hypot(kx, ky) || 1;
   const push = (kind === 'bite' ? 0.34 : 0.16) * (t.type === 'king' || t.isBoss ? 0.25 : 1);
   moveCircle(t, kx / kd * push, ky / kd * push, 0.3);
@@ -3010,14 +3219,38 @@ function wake(t) {
   t.state = 'chase'; t.t = 0;
   if (t.type === 'borealosuchus') t.vOff = 0.22;
   SFX.growl(t.def.voice);
+  const screeching = t.type === 'raptor';
   for (let i = 0; i < W.things.length; i++) {
     const o = W.things[i];
-    if (o !== t && o.kind === 'dino' && o.alive && o.state === 'sleep' &&
-      Math.hypot(o.x - t.x, o.y - t.y) < 5 && losClear(t.x, t.y, o.x, o.y)) {
-      o.state = 'chase'; o.t = 0;
-      if (o.type === 'borealosuchus') o.vOff = 0.22;
-    }
+    if (o === t || o.kind !== 'dino' || !o.alive || o.state !== 'sleep') continue;
+    /* A raptor that spots you screeches for its pack, and the others answer from across
+       the clearing and from round a corner — that is what brings them in from different
+       sides. Everything else still only stirs at what it can actually see. */
+    const packCall = screeching && o.type === 'raptor';
+    if (Math.hypot(o.x - t.x, o.y - t.y) >= (packCall ? 9 : 5)) continue;
+    if (!packCall && !losClear(t.x, t.y, o.x, o.y)) continue;
+    o.state = 'chase'; o.t = 0;
+    if (o.type === 'borealosuchus') o.vOff = 0.22;
   }
+}
+
+/* A wind-up the player is meant to see coming: the sprite pulses red and the dino hisses.
+   Call it every frame of the wind-up — the cue only sounds on the frame the tell begins. */
+function telegraph(t, dur) {
+  if (!(t.tell > 0)) SFX.tell(t.def.voice);
+  t.tell = dur;
+}
+
+/* Mid-tell: the window where a claw is fast enough to knock the strike off its rails. */
+function dinoTelegraphing(t) {
+  return t.state === 'wind' || t.pawing > 0 || t.crouch > 0 || t.coil > 0 || t.rearing > 0 ||
+    (t.type === 'ptero' && t.swoop > 0.65);
+}
+
+/* Committed to a move it can no longer steer out of — what the bite is paid to punish. */
+function dinoCommitted(t) {
+  return dinoTelegraphing(t) || t.state === 'stun' ||
+    t.charging > 0 || t.trikeCharging > 0 || t.lunging > 0 || t.leap > 0 || t.swoop > 0;
 }
 
 function updateDino(t, dt) {
@@ -3028,13 +3261,16 @@ function updateDino(t, dt) {
     return;
   }
   if (t.flash > 0) t.flash -= dt;
+  if (t.tell > 0) t.tell -= dt;
+  if (t.intCd > 0) t.intCd -= dt;
   const dx = P.x - t.x, dy = P.y - t.y;
   const dist = Math.hypot(dx, dy);
   const d = t.def;
   const spd = d.speed * (SET.easy ? 0.82 : 1);
 
   if (t.state === 'stun') {
-    t.swoop = 0;
+    t.swoop = 0; t.tell = 0;
+    t.crouch = 0; t.leap = 0; t.backoff = 0; t.coil = 0; t.rearing = 0;
     t.stun -= dt; t.frame = 3;
     if (t.stun <= 0) { t.state = 'chase'; t.t = 0; }
     return;
@@ -3072,6 +3308,7 @@ function updateDino(t, dt) {
 
   if (t.state === 'wind') {
     t.t += dt; t.frame = 2;
+    if (!t.hitDone) telegraph(t, 0.2);      // topped up each frame until the blow lands
     t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * 0.6 * dt);
     if (t.type === 'ptero') t.vOff = -0.05;
     if (!t.hitDone && t.t >= d.wind) {
@@ -3079,11 +3316,15 @@ function updateDino(t, dt) {
       if (Math.hypot(P.x - t.x, P.y - t.y) <= d.reach + 0.45 && losClear(t.x, t.y, P.x, P.y)) hurtPlayer(d.dmg);
       else SFX.bonk();
     }
-    if (t.t >= d.wind + 0.18) { t.state = 'rest'; t.t = 0; }
+    if (t.t >= d.wind + 0.18) {
+      t.state = 'rest'; t.t = 0;
+      // a raptor never stands and trades: it is back out of your reach the moment it has swung
+      if (t.type === 'raptor') { t.backoff = 0.5; t.side = Math.random() < 0.5 ? 1 : -1; }
+    }
     return;
   }
   if (t.state === 'rest') {
-    t.t += dt; t.frame = 0;
+    t.t += dt; t.frame = 0; t.tell = 0;
     t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * 0.5 * dt);
     if (t.type === 'ptero') t.vOff = -0.42;
     if (t.t >= d.rest) { t.state = 'chase'; t.t = 0; }
@@ -3094,15 +3335,27 @@ function updateDino(t, dt) {
   t.phase += dt * spd * 1.5;
   t.frame = (t.phase | 0) % 2;
 
-  // Carnotaurus sprint ram charge
+  // Carnotaurus: rears up with a bellow, keeps aiming, then locks a line and sprints down it
   if (t.type === 'carnotaurus') {
     // (timers count down past 0 to a tiny negative number, which is truthy, so test "> 0", not "!timer")
-    if (!(t.charging > 0) && dist > 2.5 && dist < 12.0 && Math.random() < dt * 2.0 && losClear(t.x, t.y, P.x, P.y)) {
-      t.charging = 1.6;
-      t.chargeX = dx / (dist || 1);
-      t.chargeY = dy / (dist || 1);
-      t.angle = Math.atan2(t.chargeY, t.chargeX);
+    if (!(t.charging > 0) && !(t.rearing > 0) && dist > 2.5 && dist < 12.0 &&
+      Math.random() < dt * 2.0 && losClear(t.x, t.y, P.x, P.y)) {
+      t.rearing = 0.5;
       SFX.growl(0);
+    }
+    if (t.rearing > 0) {
+      t.rearing -= dt;
+      t.frame = 2;
+      telegraph(t, 0.2);
+      // it tracks you while it rears and only commits when its head comes down, so the
+      // half second is yours: break the line and the charge goes past you
+      t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * 1.2 * dt);
+      if (t.rearing <= 0) {
+        t.charging = 1.6;
+        t.chargeX = Math.cos(t.angle);
+        t.chargeY = Math.sin(t.angle);
+      }
+      return;
     }
     if (t.charging > 0) {
       t.charging -= dt;
@@ -3123,15 +3376,25 @@ function updateDino(t, dt) {
     }
   }
 
-  // Borealosuchus snap lunge
+  // Borealosuchus snap lunge, coiled first so you get a beat to move out of the line
   if (t.type === 'borealosuchus') {
     t.vOff = 0.22;
-    if (!(t.lunging > 0) && dist > 1.8 && dist < 5.5 && Math.random() < dt * 2.2 && losClear(t.x, t.y, P.x, P.y)) {
-      t.lunging = 0.55;
-      t.lungeX = dx / (dist || 1);
-      t.lungeY = dy / (dist || 1);
-      t.angle = Math.atan2(t.lungeY, t.lungeX);
-      SFX.bite();
+    if (!(t.lunging > 0) && !(t.coil > 0) && dist > 1.8 && dist < 5.5 &&
+      Math.random() < dt * 2.2 && losClear(t.x, t.y, P.x, P.y)) {
+      t.coil = 0.32;
+    }
+    if (t.coil > 0) {
+      t.coil -= dt;
+      t.frame = 2;
+      telegraph(t, 0.2);
+      t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * 0.8 * dt);
+      if (t.coil <= 0) {
+        t.lunging = 0.55;
+        t.lungeX = Math.cos(t.angle);
+        t.lungeY = Math.sin(t.angle);
+        SFX.bite();
+      }
+      return;
     }
     if (t.lunging > 0) {
       t.lunging -= dt;
@@ -3161,6 +3424,8 @@ function updateDino(t, dt) {
     }
     if (t.pawing > 0) {
       t.pawing -= dt;
+      telegraph(t, 0.2);
+      // the line was locked when it started pawing: seven tenths of a second to leave it
       t.frame = (Math.sin(W.time * 14) > 0 ? 0 : 1);
       if (t.pawing <= 0) t.trikeCharging = 1.4;
       return;
@@ -3196,6 +3461,7 @@ function updateDino(t, dt) {
       t.swoop -= dt;
       if (aiming) {
         t.vOff += (-0.66 - t.vOff) * Math.min(1, dt * 8);
+        telegraph(t, 0.2);
         t.frame = Math.sin(W.time * 22) > 0 ? 0 : 1;
         t.angle = Math.atan2(dy, dx);
         t.swoopX = dx / (dist || 1); t.swoopY = dy / (dist || 1);
@@ -3215,6 +3481,55 @@ function updateDino(t, dt) {
     }
   }
 
+  /* Velociraptor: the pack hunter. It circles wide on its own bearing, and when its turn
+     comes it drops into a crouch you can see coming, springs, and immediately backs out of
+     your reach — so the danger is a stream of darts from three sides rather than a scrum. */
+  if (t.type === 'raptor') {
+    if (t.backoff > 0) {
+      t.backoff -= dt;
+      t.frame = (t.phase | 0) % 2;
+      const away = Math.atan2(-dy, -dx) + (t.side || 1) * 0.5;
+      moveCircle(t, Math.cos(away) * spd * 1.15 * dt, Math.sin(away) * spd * 1.15 * dt, 0.3);
+      t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * 0.8 * dt);   // keeps its eyes on you
+      return;
+    }
+    if (t.crouch > 0) {
+      t.crouch -= dt;
+      t.frame = 2;
+      telegraph(t, 0.2);
+      t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * 1.4 * dt);
+      if (t.crouch <= 0) {
+        t.leap = 0.34;
+        t.leapX = Math.cos(t.angle);
+        t.leapY = Math.sin(t.angle);
+        SFX.pounce();
+      }
+      return;
+    }
+    if (t.leap > 0) {
+      t.leap -= dt;
+      t.frame = 2;
+      const preX = t.x, preY = t.y;
+      moveCircle(t, t.leapX * spd * 2.6 * dt, t.leapY * spd * 2.6 * dt, 0.3);
+      t.side = t.side || (Math.random() < 0.5 ? 1 : -1);
+      if (dist <= d.reach + 0.25 && losClear(t.x, t.y, P.x, P.y)) {
+        hurtPlayer(d.dmg);
+        t.leap = 0; t.backoff = 0.7;
+      } else if (t.leap <= 0 || Math.hypot(t.x - preX, t.y - preY) < 0.0005) {
+        t.leap = 0; t.backoff = 0.55;
+      }
+      return;
+    }
+    // W.packPounce holds the rest of the pack in the circle while one of them commits
+    if (!(W.packPounce > 0) && dist > 1.6 && dist < 4.6 &&
+      Math.random() < dt * 1.6 && losClear(t.x, t.y, P.x, P.y)) {
+      t.crouch = 0.38;
+      t.side = Math.random() < 0.5 ? 1 : -1;
+      W.packPounce = 1.1;
+      return;
+    }
+  }
+
   if (dist <= d.reach && losClear(t.x, t.y, P.x, P.y)) {
     t.state = 'wind'; t.t = 0; t.hitDone = false;
     t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * dt);
@@ -3230,6 +3545,9 @@ function updateDino(t, dt) {
     // Agile lateral weave swings heading by ±40 degrees
     const weave = Math.sin(t.phase * 4.2) * 0.72;
     moveAng += weave;
+    // and each raptor holds its own bearing on you until it is that one's turn to dart in,
+    // so a pack arrives spread out instead of stacked in a line. The offset fades as it closes.
+    if (dist > 2.6) moveAng += t.flank * clamp((dist - 2.6) / 3, 0, 1);
   } else if (t.type === 'ptero') {
     // pterosaurs hold a ring around you while the next dive recharges: spiral in, circle, back off if you close the gap
     if (!t.orbit) t.orbit = Math.random() < 0.5 ? 1 : -1;
@@ -3277,6 +3595,7 @@ function separate() {
 /* ------------------------------------------------------------- updating */
 function update(dt) {
   W.time += dt;
+  if (W.packPounce > 0) W.packPounce -= dt;
 
   // look
   P.ang += look.dx * SET.sens; look.dx = 0;
@@ -3305,7 +3624,7 @@ function update(dt) {
   if (joy.active) { fwd -= joy.y; strafe += joy.x; }
   const mag = Math.hypot(fwd, strafe);
   if (mag > 1) { fwd /= mag; strafe /= mag; }
-  const speed = 3.15 * (P.atk && P.atk.kind === 'bite' ? 0.6 : 1);
+  const speed = 3.15 * (P.atk && P.atk.kind === 'bite' ? 0.45 : 1);   // the bite roots you; the claw does not
   const mx = (P.dirX * fwd + P.planeX / FOV * strafe) * speed * dt;
   const my = (P.dirY * fwd + P.planeY / FOV * strafe) * speed * dt;
   if (mx || my) moveCircle(P, mx, my, 0.26);
@@ -3367,6 +3686,15 @@ function update(dt) {
     if (t.spr === 'torch' || t.spr === 'exit') t.frame = (W.time * 6 | 0) % 2;
   }
   separate();
+
+  // How hot the fight is right now, for the soundtrack: awake dinos close enough to matter.
+  let hunting = 0;
+  for (let i = 0; i < arr.length; i++) {
+    const t = arr[i];
+    if (t.kind === 'dino' && t.alive && t.state !== 'sleep' && t.state !== 'poof' &&
+      Math.hypot(t.x - P.x, t.y - P.y) < 14) hunting += t.isBoss ? 2 : 1;
+  }
+  musicHeat += (clamp(hunting / 3, 0, 1) - musicHeat) * Math.min(1, dt * 1.5);
 
   // fog of war for the minimap
   const px = P.x | 0, py = P.y | 0;
