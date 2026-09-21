@@ -719,36 +719,63 @@ function texTemple() {
   return cv;
 }
 
+/* How many grid squares one sky tile is stretched across. At 1 (what every other ceiling
+   uses) the same handful of clouds lands in every single square and the sky reads as
+   wallpaper; spreading the tile over several squares is what buys it some sky to be
+   sparse in. `buildArt` hangs the matching texel scale on TEX.sky for the ceiling sweep. */
+const SKY_TILE_UNITS = 6;
+
 function texSky() {
-  const cv = newCv(TW, TW), ctx = cv.getContext('2d'), rnd = rngFrom(107);
-  const grad = ctx.createLinearGradient(0, 0, 0, TW);
-  grad.addColorStop(0, '#4a9fd8'); grad.addColorStop(1, '#8fd0ec');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, TW, TW);
+  const cv = newCv(TW, TW), ctx = cv.getContext('2d'), rnd = rngFrom(503);
 
-  // the ceiling repeats this tile once per grid unit, so clouds are drawn wrapped
-  // at all 9 neighbouring offsets to keep the seam between tiles invisible
-  function wrapped(x, y, draw) {
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) draw(x + dx * TW, y + dy * TW);
+  /* Flat, deliberately. The ceiling tiles this texture, so a gradient across it lands as a
+     hard light-to-dark band at every tile edge — which is what the seams in the sky were. */
+  ctx.fillStyle = '#5aa7dc';
+  ctx.fillRect(0, 0, TW, TW);
+
+  /* Clouds are cut out of a noise field rather than drawn as puffs. Each octave sits on a
+     lattice that wraps at the tile edge, so cloud carries straight across a seam instead of
+     stopping at one, and a high threshold leaves a few sparse shapes over open blue. */
+  function octave(cells) {
+    const g = new Float32Array(cells * cells);
+    for (let i = 0; i < g.length; i++) g[i] = rnd();
+    // the mask wraps the lattice, and works for samples pushed outside the tile
+    const at = function (cx, cy) { return g[(cy & (cells - 1)) * cells + (cx & (cells - 1))]; };
+    return function (x, y) {
+      const fx = x * cells / TW, fy = y * cells / TW;
+      const x0 = Math.floor(fx), y0 = Math.floor(fy);
+      const tx = fx - x0, ty = fy - y0;
+      const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+      const a = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * sx;
+      const b = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * sx;
+      return a + (b - a) * sy;
+    };
   }
+  const n2 = octave(2), n4 = octave(4), n8 = octave(8);
+  const warpX = octave(2), warpY = octave(4);
 
-  for (let i = 0; i < 4; i++) {
-    const cx = rnd() * TW, cy = 6 + rnd() * (TW - 12);
-    ctx.fillStyle = 'rgba(255,255,255,0.88)';
-    for (let j = 0; j < 4; j++) {
-      const ox = (j - 1.5) * 7 + rnd() * 3, oy = rnd() * 3 - 1.5;
-      const rx = 6 + rnd() * 3, ry = 3.5 + rnd() * 1.5;
-      wrapped(cx + ox, cy + oy, function (wx, wy) {
-        ctx.beginPath(); ctx.ellipse(wx, wy, rx, ry, 0, 0, TAU); ctx.fill();
-      });
+  const img = ctx.getImageData(0, 0, TW, TW), px = img.data;
+  for (let y = 0; y < TW; y++) {
+    for (let x = 0; x < TW; x++) {
+      // Shove the sample around before reading the field: straight noise gives round blobs,
+      // warped noise gives ragged wisps. The warp wraps as well, so this still tiles.
+      const wx = x + (warpX(x, y) - 0.5) * 16, wy = y + (warpY(x, y) - 0.5) * 16;
+      /* Part of the field is read along 45-degree axes. (x+y, y-x) maps the lattice onto
+         itself, so it wraps like everything else, but its shapes run diagonally and break
+         up the square grid the axis-aligned part would otherwise lay down. */
+      const dgx = wx + wy, dgy = wy - wx;
+      const v = (n2(wx, wy) * 0.36 + n4(wx, wy) * 0.36 + n8(wx, wy) * 0.28 +
+        (n2(dgx, dgy) * 0.36 + n4(dgx, dgy) * 0.36) * 0.7) / 1.504;
+      const t = (v - 0.62) / 0.15;           // only the peaks of the field become cloud
+      if (t <= 0) continue;
+      const a = (t >= 1 ? 1 : t * t * (3 - 2 * t)) * 0.85;   // soft shoulder, never fully opaque
+      const o = (y * TW + x) * 4;
+      px[o] += (252 - px[o]) * a;
+      px[o + 1] += (253 - px[o + 1]) * a;
+      px[o + 2] += (255 - px[o + 2]) * a;
     }
   }
-  for (let i = 0; i < 5; i++) {
-    const x = rnd() * TW, y = rnd() * TW, rx = 10 + rnd() * 8, ry = 2 + rnd() * 2;
-    ctx.fillStyle = 'rgba(255,255,255,0.16)';
-    wrapped(x, y, function (wx, wy) {
-      ctx.beginPath(); ctx.ellipse(wx, wy, rx, ry, 0, 0, TAU); ctx.fill();
-    });
-  }
+  ctx.putImageData(img, 0, 0);
   return cv;
 }
 
@@ -1715,6 +1742,8 @@ function buildArt() {
   TEX.grass = bake(texGrass()); TEX.ash = bake(texAsh()); TEX.tile = bake(texTile());
   TEX.canopy = bake(texCanopy()); TEX.cave = bake(texCave()); TEX.temple = bake(texTemple());
   TEX.sky = bake(texSky());
+  TEX.sky.unitScale = 64 / SKY_TILE_UNITS;      // texels per grid square; the ceiling sweep reads it
+  TEX.sky.flatLit = true;                       // open sky doesn't dim with distance the way a roof does
 
   // amber with tiger stripes and a red crest: the old green raptor vanished into every forest floor
   const amber = { body: '#f2a93b', belly: '#fff0c2', dark: '#c46a1d', stripe: '#6b3410', crest: '#d9402f' };
@@ -2258,6 +2287,12 @@ function renderWorld(cam) {
   const rdx0 = dirX - planeX, rdy0 = dirY - planeY;
   const rdx1 = dirX + planeX, rdy1 = dirY + planeY;
   const fTex = W.floorTex, cTex = W.ceilTex;
+  // texels per grid square for the ceiling: 64 (one tile per square) unless the texture
+  // asks to be stretched further, as the sky does
+  const cScale = cTex.unitScale || 64;
+  /* Ceilings dim with distance, which on open sky only shows up as bands of blue marching
+     back to the horizon. A flat-lit ceiling takes the same bank at every distance. */
+  const cFlat = cTex.flatLit ? cTex.shades[SHADES - 1] : null;
 
   for (let y = horizon + 1; y < RH; y++) {
     const p = y - horizon;
@@ -2274,12 +2309,12 @@ function renderWorld(cam) {
   for (let y = 0; y < horizon; y++) {
     const p = horizon - y;
     const rowDist = ((ceilH - eyeH) * RH) / p;
-    const bank = cTex.shades[shadeIdx(rowDist)];
+    const bank = cFlat || cTex.shades[shadeIdx(rowDist)];
     const stx = rowDist * (rdx1 - rdx0) / RW, sty = rowDist * (rdy1 - rdy0) / RW;
     let fx = posX + rowDist * rdx0, fy = posY + rowDist * rdy0;
     const o = y * RW;
     for (let x = 0; x < RW; x++) {
-      buf[o + x] = bank[((((fy * 64) | 0) & 63) << 6) + (((fx * 64) | 0) & 63)];
+      buf[o + x] = bank[((((fy * cScale) | 0) & 63) << 6) + (((fx * cScale) | 0) & 63)];
       fx += stx; fy += sty;
     }
   }

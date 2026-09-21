@@ -15,6 +15,7 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 * **2.5D Raycasting Engine with Dynamic Ceilings**:
   * **Custom Heights (`ceilH`)**: Levels range from standard cavern ceilings to soaring `2.8x` redwood forest canopies and `3.2x` monumental throne halls.
   * **Four ceilings**: open sky, forest canopy, cave rock and temple gold, so no two floors read as the same room.
+  * **Seamless sky**: flat blue with sparse clouds cut from a noise field that wraps, stretched over six grid squares instead of repeating in every one — so there is no tile edge to spot and no clouds marching in rows.
   * **Full Vertical Mouse & Touch Look**: Tilt your gaze up into the redwood canopy or down to the forest floor.
 * **4-Angle Directional Dinosaur Sprites**:
   * Dinosaurs feature distinct front, side-profile (with dynamic flipping), and rear visual angles as they hunt, flee, or patrol.
