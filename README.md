@@ -14,22 +14,27 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 * **Touch controls for phones and tablets**: a floating walk stick under your left thumb, drag-to-look on the right (up and down too), and thumb-sized Claw / Bite / Roar buttons that scale with your screen. The level editor works with a finger too.
 * **2.5D Raycasting Engine with Dynamic Ceilings**:
   * **Custom Heights (`ceilH`)**: Levels range from standard cavern ceilings to soaring `2.8x` redwood forest canopies and `3.2x` monumental throne halls.
+  * **Four ceilings**: open sky, forest canopy, cave rock and temple gold, so no two floors read as the same room.
   * **Full Vertical Mouse & Touch Look**: Tilt your gaze up into the redwood canopy or down to the forest floor.
 * **4-Angle Directional Dinosaur Sprites**:
   * Dinosaurs feature distinct front, side-profile (with dynamic flipping), and rear visual angles as they hunt, flee, or patrol.
 * **Prehistoric Roster with Unique AI**:
-  * 🟠 **Velociraptor**: Amber, tiger-striped pack hunters with a red feather crest. They weave side to side as they close in.
-  * 🦏 **Triceratops**: Armored behemoths that charge with high knockback.
+  * 🟠 **Velociraptor**: Amber, tiger-striped pack hunters with a red feather crest. One that spots you screeches for the rest, and the pack fans out to arrive from different sides. Each raptor crouches, springs, slashes and immediately backs out of reach.
+  * 🦏 **Triceratops**: Armored behemoths. They paw the ground along the line they intend to charge — seven tenths of a second to leave it.
   * 🦅 **Pterosaur**: Purple flyers that circle overhead, rear up with a screech, then dive-bomb in a straight line. Sidestep it!
-  * 🐊 **Borealosuchus**: Prehistoric crocodilian lurkers lurking in the murky bayou.
-  * 👹 **Carnotaurus (Sub-Boss)**: Fast, horned carnivore with a devastating charge.
+  * 🐊 **Borealosuchus**: Prehistoric crocodilian lurkers of the murky bayou. They coil before they snap forward.
+  * 👹 **Carnotaurus (Sub-Boss)**: Fast, horned carnivore that rears up and keeps aiming before it commits to a charge line.
   * 👑 **The Bone King (Boss)**: Colossal apex predator guarding the prehistoric Bone Throne.
 * **5 Distinct Prehistoric Biomes**:
-  1. **Floor 0: Verdant Canopy** — Open primeval forest with multi-layered depth trees, 100% organic tree-walls, and zero artificial doors.
+  1. **Floor 0: Verdant Canopy** — Open primeval forest under a wide blue sky, with multi-layered depth trees, 100% organic tree-walls, and zero artificial doors.
   2. **Floor 1: Fernback Ruins** — Ancient stone pillars overgrown by primeval pines with hanging vine curtains.
   3. **Floor 2: Murky Bayou** — Deep cypress swamp with water ripples and a prehistoric bone gate locked by an amber fossil key.
   4. **Floor 3: Bubbling Basalt** — Volcanic obsidian caverns, ash floors, and the Carnotaurus sub-boss lair.
   5. **Floor 4: The Bone Throne** — Golden temple arena and the final showdown against The Bone King.
+* **Read-the-tell Combat**: Every dino pulses **red** while it winds up, so a strike can be seen coming and stepped away from.
+  * **Claw** is fast and wide, hits three at once, and lands early enough to knock a dino clean off a strike it has already started.
+  * **Bite** is slow and roots you where you stand — but it does **double damage** to a dino already committed to its own move. Reading the flash and biting into it beats swinging on reflex; per second, spamming the big attack is the worse habit.
+* **Eggs worth finding**: each floor leaves at most one egg in plain sight, as a breadcrumb near your route. The rest sit in thicket nests, in wall alcoves off the main path, or under guard — so clearing a floor means searching it.
 * **T-Rex Roar Stun Mechanic**: Unleash a powerful roar to terrify and stun surrounding dinosaurs.
 * **Built-in In-Game Level Editor**:
   * Interactive grid painter directly in the browser (open via `Pause Menu` or `Title Screen`).
@@ -53,8 +58,8 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 | **Move & Strafe** | `W`, `A`, `S`, `D` (`↑` / `↓` also walk) | Drag anywhere on the left half; a stick appears under your thumb |
 | **Turn Camera** | Mouse horizontal move, or `Q` / `E` (`←` / `→` also turn) | Drag on the right half, sideways |
 | **Look Up / Down (Pitch)** | Mouse vertical move, `PageUp` / `PageDown`, `I` / `K` (`Home` to center) | Drag on the right half, up or down |
-| **Claw** (quick swipe) | Left Mouse Click or `F` | **Claw** button |
-| **Bite** (slow, strong) | Right Mouse Click or `Spacebar` | **Bite** button |
+| **Claw** (fast, wide, interrupts a wind-up) | Left Mouse Click or `F` | **Claw** button |
+| **Bite** (slow, roots you, doubles on a committed dino) | Right Mouse Click or `Spacebar` | **Bite** button |
 | **Prehistoric Roar (Stun)** | `R` or `Shift` | **Roar** button |
 | **Pause / Level Editor** | `Escape` or `P` | **II** button (top left) |
 | **Music on / off** | `M` | Pause menu |
@@ -75,7 +80,7 @@ The game includes a full level creation suite built directly into the engine:
 
 ## 📜 Audio Credits
 * Dinosaur Roar audio effect adapted from [BESTROFLMAN on FreeSound](https://freesound.org/people/BESTROFLMAN/sounds/212433/), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
-* Procedural synthesizers for bites, footstep stomps, chomp impact, and ambient soundtrack generated in real-time via the Web Audio API.
+* Procedural synthesizers for bites, footstep stomps, chomp impact, and the soundtrack, all generated in real time via the Web Audio API. Effects and music sit on separate buses, and the arrangement thickens while dinos are actually hunting you.
 
 ---
 
