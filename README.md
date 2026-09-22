@@ -41,6 +41,7 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
   * Interactive grid painter directly in the browser (open via `Pause Menu` or `Title Screen`).
   * Real-time safety validation (ensures zero trees block 1-square passages or doors).
   * Texture pickers, ceiling height slider (`1.0x` to `4.0x`), entity counters, and 100% reachability audits.
+  * The grid takes whatever room the window has and never clips — and if it ever runs out, that side scrolls like the palette does. Embedded on the web page, opening the editor gives the frame the extra height a square map needs.
   * Saves the floors you change to `localStorage` (floors you haven't touched keep following updates to the game), with one-click **Playtest**, **Export JSON**, **Import**, and **Reset Floor** to factory defaults. Imports with a typo'd texture or an out-of-range ceiling height fall back to safe values instead of breaking the floor.
 
 ---
