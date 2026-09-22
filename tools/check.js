@@ -10,7 +10,8 @@
  *                the renderer set-up, input binding and the editor UI
  *   3. levels  — the shipped floors pass the game's OWN editor audit (reachable exit,
  *                key not locked behind its own gate, no tree plugging a corridor)
- *   4. smoke   — every floor survives a burst of play with all the dinos awake
+ *   4. palette — no two editor swatches are perceptually indistinguishable
+ *   5. smoke   — every floor survives a burst of play with all the dinos awake
  *
  * The level check calls getEditorValidation() rather than reimplementing its rules, so it
  * cannot drift from what the in-game editor tells a player.
@@ -86,7 +87,64 @@ console.log('\nsyntax');
     if (v.warnings.length) console.log('        note: ' + v.warnings.join('; '));
   }
 
-  /* ----------------------------------------------------------------- 4. smoke */
+  /* --------------------------------------------------------------- 4. palette */
+  /* Tile swatches that look alike make the editor hard to read at a glance. The glyph
+     carries the meaning, so the colour only has to be a clear second signal — but two
+     greens for "tree" and "raptor" is not one. dE is CIEDE2000: under about 12, two
+     swatches read as the same colour at chip size. */
+  console.log('\npalette separation');
+  const toLab = function (h) {
+    const v = [1, 3, 5].map(function (i) { return parseInt(h.slice(i, i + 2), 16) / 255; })
+      .map(function (c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+    let X = (v[0] * 0.4124 + v[1] * 0.3576 + v[2] * 0.1805) / 0.95047;
+    let Y = (v[0] * 0.2126 + v[1] * 0.7152 + v[2] * 0.0722);
+    let Z = (v[0] * 0.0193 + v[1] * 0.1192 + v[2] * 0.9505) / 1.08883;
+    const g = function (t) { return t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116; };
+    X = g(X); Y = g(Y); Z = g(Z);
+    return [116 * Y - 16, 500 * (X - Y), 200 * (Y - Z)];
+  };
+  const de = function (p, q) {
+    const C1 = Math.hypot(p[1], p[2]), C2 = Math.hypot(q[1], q[2]), Cb = (C1 + C2) / 2;
+    const G = 0.5 * (1 - Math.sqrt(Math.pow(Cb, 7) / (Math.pow(Cb, 7) + Math.pow(25, 7))));
+    const a1 = (1 + G) * p[1], a2 = (1 + G) * q[1];
+    const Cp1 = Math.hypot(a1, p[2]), Cp2 = Math.hypot(a2, q[2]);
+    const ang = function (x, y) { const d = Math.atan2(y, x) * 180 / Math.PI; return d < 0 ? d + 360 : d; };
+    const h1 = Cp1 === 0 ? 0 : ang(a1, p[2]), h2 = Cp2 === 0 ? 0 : ang(a2, q[2]);
+    const dL = q[0] - p[0], dC = Cp2 - Cp1;
+    let dh = 0;
+    if (Cp1 * Cp2 !== 0) { dh = h2 - h1; if (dh > 180) dh -= 360; else if (dh < -180) dh += 360; }
+    const dH = 2 * Math.sqrt(Cp1 * Cp2) * Math.sin(dh * Math.PI / 360);
+    const Lb = (p[0] + q[0]) / 2, Cpb = (Cp1 + Cp2) / 2;
+    let hb;
+    if (Cp1 * Cp2 === 0) hb = h1 + h2;
+    else { hb = (h1 + h2) / 2; if (Math.abs(h1 - h2) > 180) hb += (h1 + h2 < 360) ? 180 : -180; }
+    const T = 1 - 0.17 * Math.cos((hb - 30) * Math.PI / 180) + 0.24 * Math.cos(2 * hb * Math.PI / 180)
+      + 0.32 * Math.cos((3 * hb + 6) * Math.PI / 180) - 0.20 * Math.cos((4 * hb - 63) * Math.PI / 180);
+    const Sl = 1 + (0.015 * Math.pow(Lb - 50, 2)) / Math.sqrt(20 + Math.pow(Lb - 50, 2));
+    const Sc = 1 + 0.045 * Cpb, Sh = 1 + 0.015 * Cpb * T;
+    const Rt = -2 * Math.sqrt(Math.pow(Cpb, 7) / (Math.pow(Cpb, 7) + Math.pow(25, 7)))
+      * Math.sin(60 * Math.exp(-Math.pow((hb - 275) / 25, 2)) * Math.PI / 180);
+    return Math.sqrt(Math.pow(dL / Sl, 2) + Math.pow(dC / Sc, 2) + Math.pow(dH / Sh, 2) + Rt * (dC / Sc) * (dH / Sh));
+  };
+  // the key gate is meant to match its key; the two grey walls are told apart by pattern
+  const EXEMPT = { 'K|k': 1, '#|%': 1 };
+  const MIN_DE = 12;
+  const swatches = JSON.parse(ev('JSON.stringify(Object.keys(ED_PALETTE).reduce(function (a, c) {' +
+    ' return a.concat(ED_PALETTE[c].map(function (i) { return { ch: i.ch, label: i.label, color: i.color }; })); }, []))'));
+  swatches.forEach(function (s) { s.lab = toLab(s.color); });
+  let closest = { d: Infinity };
+  const clashes = [];
+  for (let i = 0; i < swatches.length; i++) for (let j = i + 1; j < swatches.length; j++) {
+    const a = swatches[i], b = swatches[j];
+    if (EXEMPT[[a.ch, b.ch].sort().join('|')]) continue;
+    const d = de(a.lab, b.lab);
+    if (d < closest.d) closest = { d: d, a: a, b: b };
+    if (d < MIN_DE) clashes.push(`${a.label} (${a.ch}) and ${b.label} (${b.ch}) are dE ${d.toFixed(1)} apart`);
+  }
+  check(`no two swatches are closer than dE ${MIN_DE}`, clashes.length === 0, clashes.join('; '));
+  console.log(`        closest pair: ${closest.a.label} vs ${closest.b.label} at dE ${closest.d.toFixed(1)}`);
+
+  /* ----------------------------------------------------------------- 5. smoke */
   console.log('\nsmoke (900 frames a floor, every dino awake)');
   ev('startGame(false);');
   for (let i = 0; i < count; i++) {

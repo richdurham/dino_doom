@@ -163,6 +163,15 @@ body {
   gap: 8px;
 }
 
+/* The level editor is a square 24x24 grid, which does not fit a 16:9 box. While it is
+   open the game frame drops the aspect ratio and takes the height it needs; the game
+   itself letterboxes to 16:9 internally, so nothing about play changes. */
+.game-container.editor-open {
+  aspect-ratio: auto;
+  height: min(88vh, 900px);
+  min-height: 460px;
+}
+
 /* Expanded Full-Window Mode */
 .game-container.expanded {
   position: fixed !important;
@@ -508,6 +517,17 @@ function toggleFullWindow() {
     } catch (e) {}
   }
 }
+
+// The game posts this when its level editor opens or closes (see tellHostEditor()).
+window.addEventListener('message', function (e) {
+  const d = e.data;
+  if (!d || d.rexRumble !== 'editor') return;
+  const frame = document.getElementById('gameFrame');
+  const container = document.getElementById('gameContainer');
+  if (!frame || !container || e.source !== frame.contentWindow) return;   // only our own game frame
+  container.classList.toggle('editor-open', !!d.open);
+  try { frame.contentWindow.dispatchEvent(new Event('resize')); } catch (err) {}
+});
 
 function requestBrowserFullscreen() {
   const container = document.getElementById('gameContainer');

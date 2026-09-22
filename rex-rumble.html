@@ -114,14 +114,14 @@ body.touch #bPause{display:block}
   backdrop-filter:blur(10px);display:flex;flex-direction:column;color:var(--bone);
   font-family:Fredoka,"Avenir Next Rounded",sans-serif;overflow:hidden}
 #editorOverlay.hide{display:none}
-.ed-top{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;
-  background:#13281e;border-bottom:2px solid rgba(255,255,255,.1);gap:12px;flex-wrap:wrap}
-.ed-title{font-size:22px;font-weight:700;color:var(--egg);display:flex;align-items:center;gap:8px}
-.ed-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.ed-sel, .ed-input{font-family:inherit;font-size:14px;padding:6px 10px;border-radius:8px;
+.ed-top{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;
+  background:#13281e;border-bottom:2px solid rgba(255,255,255,.1);gap:8px;flex-wrap:wrap}
+.ed-title{font-size:17px;font-weight:700;color:var(--egg);display:flex;align-items:center;gap:6px}
+.ed-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ed-sel, .ed-input{font-family:inherit;font-size:13px;padding:4px 8px;border-radius:8px;
   background:#0c1a14;color:var(--bone);border:2px solid #2d553f;outline:none}
 .ed-sel:focus, .ed-input:focus{border-color:var(--lime)}
-.ed-btn{font-family:inherit;font-size:14px;font-weight:600;padding:7px 14px;border-radius:999px;
+.ed-btn{font-family:inherit;font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px;
   border:2px solid var(--ink);cursor:pointer;background:var(--lime);color:var(--ink);
   box-shadow:0 3px 0 var(--ink);transition:transform .05s ease}
 .ed-btn:hover{transform:translateY(1px);box-shadow:0 2px 0 var(--ink)}
@@ -130,11 +130,18 @@ body.touch #bPause{display:block}
 .ed-btn.danger{background:var(--flare);color:#fff}
 .ed-btn.ghost{background:transparent;color:var(--bone);border-color:rgba(255,255,255,.3);box-shadow:none}
 
-.ed-main{display:flex;flex:1;overflow:hidden;padding:12px;gap:16px;justify-content:center}
-.ed-grid-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
-#edCanvas{background:#000;border:3px solid var(--ink);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.6);cursor:crosshair;image-rendering:pixelated;
-  touch-action:none;width:min(528px,100%);height:auto;aspect-ratio:1}
-.ed-status{font-size:13px;color:#a9cbb4;display:flex;justify-content:space-between;width:100%;max-width:530px}
+/* The grid is sized to the space it has, not to a fixed 528px: at a fixed width the
+   bottom rows fell off the end of a short window (an embedded 16:9 frame, say) with no
+   way to reach them. min-height:0 lets the flex items actually shrink, and overflow:auto
+   is the backup — if it ever runs out of room, this side scrolls like the palette does. */
+.ed-main{display:flex;flex:1;min-height:0;overflow:auto;padding:8px;gap:12px;justify-content:center}
+.ed-grid-wrap{display:flex;flex-direction:column;align-items:center;gap:5px;
+  min-height:0;min-width:0;flex:0 1 min(860px,100%)}
+#edCanvas{background:#000;border:3px solid var(--ink);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.6);cursor:crosshair;
+  touch-action:none;width:auto;height:auto;max-width:100%;max-height:100%;aspect-ratio:1;
+  flex:0 1 auto;min-height:0}
+.ed-status{font-size:13px;color:#a9cbb4;display:flex;justify-content:space-between;
+  width:100%;max-width:100%;flex:0 0 auto}
 .ed-status .warn{color:#ff6b6b;font-weight:600}
 .ed-status .ok{color:var(--lime);font-weight:600}
 
@@ -157,6 +164,8 @@ body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
 @media (max-width:920px){
   .ed-main{flex-direction:column;align-items:center;overflow-y:auto}
   .ed-grid-wrap{width:100%;max-width:560px;flex:none}
+  /* stacked, the column scrolls instead, so the grid is free to take its full width */
+  #edCanvas{max-height:none}
   .ed-palette{width:100%;max-width:560px;overflow:visible;flex:none}
 }
 
@@ -1867,7 +1876,7 @@ const LEVELS=[
 "MM..s.......MMMM.T....MM",
 "MM..........MMMM......MM",
 "MMMMMMMMMMMMMMMMMMMKMMMM",
-"MMM..b.............bE.MM",
+"MMM.E....b.m..b......$MM",
 "MMMMMMMMMMMMMMMMMMMMMMMM"
 ]},
 {name:'Bubbling Basalt',ceilH:2.40,sub:'The horned terror hunts in the volcanic heat',floor:'ash',ceil:'cave',boss:true,grid:[
@@ -4034,7 +4043,7 @@ const ED_PALETTE = {
     { ch: 'G', label: 'Gold', desc: 'Royal golden wall', color: '#a9791f', pattern: 'shimmer', accent: '#f4d873' },
     { ch: 'W', label: 'Wood', desc: 'Bark and timber wall', color: '#5c3d22', pattern: 'grain', accent: '#33210f' },
     { ch: 'R', label: 'Crag', desc: 'Volcanic crag wall', color: '#4a4046', pattern: 'speckle', accent: '#8a7d74' },
-    { ch: 'M', label: 'Mud', desc: 'Swamp mud wall', color: '#3a3a22', pattern: 'speckle', accent: '#1c1a0e' }
+    { ch: 'M', label: 'Mud', desc: 'Swamp mud wall', color: '#5f563a', pattern: 'speckle', accent: '#1c1a0e' }
   ],
   doors: [
     { ch: '=', label: 'Door / Vine', desc: 'Doorway or nature vine curtain', color: '#2f9db5', pattern: 'solid' },
@@ -4045,12 +4054,12 @@ const ED_PALETTE = {
     { ch: 'T', label: 'Tree', desc: 'Solid pine tree obstacle', color: '#2f8a48', pattern: 'solid' }
   ],
   dinos: [
-    { ch: 'r', label: 'Raptor', desc: 'Fast pack hunter', color: '#46a365', pattern: 'solid' },
-    { ch: 't', label: 'Trike', desc: 'Armored charging tank', color: '#a3672a', pattern: 'solid' },
+    { ch: 'r', label: 'Raptor', desc: 'Fast pack hunter', color: '#e57c2b', pattern: 'solid' },
+    { ch: 't', label: 'Trike', desc: 'Armored charging tank', color: '#74c4e7', pattern: 'solid' },
     { ch: 'p', label: 'Ptero', desc: 'Swooping flyer', color: '#ab4da8', pattern: 'solid' },
-    { ch: 'c', label: 'Carno', desc: 'Fast horned stalker', color: '#c23838', pattern: 'solid' },
-    { ch: 'b', label: 'Boreal', desc: 'Lurking swamp beast', color: '#2d8272', pattern: 'solid' },
-    { ch: 'C', label: 'Carno Boss', desc: 'Sub-boss Carnotaurus', color: '#8a1030', pattern: 'solid' },
+    { ch: 'c', label: 'Carno', desc: 'Fast horned stalker', color: '#cc3333', pattern: 'solid' },
+    { ch: 'b', label: 'Boreal', desc: 'Lurking swamp beast', color: '#3f8d7a', pattern: 'solid' },
+    { ch: 'C', label: 'Carno Boss', desc: 'Sub-boss Carnotaurus', color: '#960d3c', pattern: 'solid' },
     { ch: 'X', label: 'T-Rex Boss', desc: 'The King of Dinosaurs', color: '#ff4400', pattern: 'solid' }
   ],
   items: [
@@ -4283,6 +4292,18 @@ function initEditorUI() {
   edCanvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 }
 
+/* When the game is embedded, the page around it decides how tall the frame is — and a
+   16:9 frame is a short place to put a square 24x24 grid. Tell the host the editor is up
+   so it can give us the height back, and tell it again when we leave. Harmless standalone:
+   with no host listening, nothing happens. */
+function tellHostEditor(open) {
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ rexRumble: 'editor', open: !!open }, '*');
+    }
+  } catch (e) { /* cross-origin host: it just keeps the frame as it is */ }
+}
+
 function openLevelEditor(floorIdx) {
   if (floorIdx === undefined || floorIdx === null) floorIdx = 0;
   edPrevMode = mode;
@@ -4291,7 +4312,11 @@ function openLevelEditor(floorIdx) {
   if (document.pointerLockElement === view) document.exitPointerLock();
   hideOverlay();
   document.getElementById('editorOverlay').classList.remove('hide');
+  tellHostEditor(true);
   loadFloorToEditor(floorIdx);
+  // the overlay has to be visible before the grid has a box to measure
+  watchEditorCanvasSize();
+  requestAnimationFrame(fitEditorCanvas);
 }
 
 function closeLevelEditor() {
@@ -4299,6 +4324,7 @@ function closeLevelEditor() {
   saveCustomLevelsToStorage();
   closeModal();
   document.getElementById('editorOverlay').classList.add('hide');
+  tellHostEditor(false);
   if (edPrevMode === 'play' || edPrevMode === 'paused') {
     edEditedRunning = levelKey(LEVELS[curLevel]) !== edRunKey;
     // pause() only acts from 'play'. Calling it while still in 'editor' left a blank screen that Esc couldn't escape.
@@ -4461,6 +4487,43 @@ function getEditorValidation(grid) {
   };
 }
 
+/* Give the grid every pixel the layout can spare, and keep its backing store matched to
+   the size it is actually drawn at — scaling a fixed 528px buffer up to fill a big window
+   would just leave the tile letters soft. */
+let edFitObs = null;
+function fitEditorCanvas() {
+  const wrap = document.querySelector('.ed-grid-wrap');
+  const status = document.querySelector('.ed-status');
+  if (!wrap || !edCanvas || !edCtx) return;
+  const GAP = 5, BORDER = 6;                       // .ed-grid-wrap row gap, #edCanvas border
+  const main = document.querySelector('.ed-main');
+  const availW = wrap.clientWidth - BORDER;
+  /* Side by side, the grid is boxed in by the height it has. Stacked (the narrow layout),
+     the column grows to its contents and scrolls instead — so measuring its height there
+     would just be reading back the size we set last time. Width alone decides. */
+  const stacked = main && getComputedStyle(main).flexDirection === 'column';
+  const availH = stacked ? Infinity
+    : wrap.clientHeight - (status ? status.offsetHeight : 0) - GAP - BORDER;
+  const side = Math.max(240, Math.floor(Math.min(availW, availH)));
+  if (!isFinite(side) || side <= 0) return;
+  const shown = side + 'px';
+  // setting the same values again would have the observer chasing its own tail
+  if (edCanvas.style.width === shown && edCanvas.style.height === shown) return;
+  edCanvas.style.width = shown;
+  edCanvas.style.height = shown;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const px = Math.max(240, Math.min(1400, Math.round(side * dpr)));
+  if (edCanvas.width !== px) { edCanvas.width = px; edCanvas.height = px; }
+  renderEditorGrid();
+}
+
+function watchEditorCanvasSize() {
+  const wrap = document.querySelector('.ed-grid-wrap');
+  if (!wrap || edFitObs || typeof ResizeObserver === 'undefined') return;
+  edFitObs = new ResizeObserver(function () { fitEditorCanvas(); });
+  edFitObs.observe(wrap);
+}
+
 function renderEditorGrid() {
   if (!edCtx || !edGrid || edGrid.length !== MH) return;
   const cw = edCanvas.width, ch = edCanvas.height;
@@ -4573,6 +4636,7 @@ function playtestEditorFloor() {
     }
   }
   document.getElementById('editorOverlay').classList.add('hide');
+  tellHostEditor(false);
   audioStart();
   playtesting = true;                 // a test run: own score, and it never counts toward the best score
   totalScore = 0; P.eggs = 0; P.roars = 1;
