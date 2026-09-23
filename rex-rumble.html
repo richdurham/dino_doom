@@ -238,7 +238,7 @@ body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
         <button id="edBtnPlay" class="ed-btn accent">▶ Playtest</button>
         <button id="edBtnExport" class="ed-btn">Export</button>
         <button id="edBtnImport" class="ed-btn ghost">Import</button>
-        <button id="edBtnReset" class="ed-btn ghost">Reset</button>
+        <button id="edBtnReset" class="ed-btn ghost" title="Reset this floor to the baked-in default version">Reset to Default</button>
         <button id="edBtnClose" class="ed-btn danger">✕ Exit</button>
       </div>
     </div>
@@ -4730,12 +4730,12 @@ function applyImportedMap() {
 }
 
 function resetEditorFloor() {
-  if (!confirm('Reset Floor ' + edFloorIdx + ' to default factory layout?')) return;
+  if (!confirm('Reset Floor ' + edFloorIdx + ' to its baked-in default version?')) return;
   const pristine = FACTORY_LEVELS[edFloorIdx];
   LEVELS[edFloorIdx] = JSON.parse(JSON.stringify(pristine));
   loadFloorToEditor(edFloorIdx);
   saveCustomLevelsToStorage();
-  edNote('Floor ' + edFloorIdx + ' reset to default.');
+  edNote('Floor ' + edFloorIdx + ' reset to baked-in default.');
 }
 
 function boot() {
