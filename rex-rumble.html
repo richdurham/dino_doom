@@ -2278,12 +2278,21 @@ function moveCircle(ent, dx, dy, r) {
 }
 
 /* ------------------------------------------------------------ rendering */
-/* Darkest shade distance can reach. Under an open (daytime) sky the scenery only fades halfway,
-   so far walls and dinos stay readable; a roof or cave lets them fade all the way. renderWorld sets it. */
-let shadeFloor = 0;
+/* Distance -> shade bank (7 = full brightness, each step 10% darker, 0 = 30%).
+   Under a roof or in a cave things fade all the way to 30%. Under an open (daytime) sky they fade
+   normally to 70% (just under 5 tiles), then lose one step every 5 tiles and stop at 50%:
+   1 tile 100%, 5 tiles 70%, 10 tiles 60%, 15+ tiles 50%. renderWorld sets skyLit per floor. */
+let skyLit = false;
 function shadeIdx(d) {
-  let s = (SHADES - 1) - ((d * 0.62) | 0);
-  return s < shadeFloor ? shadeFloor : s > SHADES - 1 ? SHADES - 1 : s;
+  let g = d * 0.62;
+  let lo = 0;
+  if (skyLit) {
+    const far = 2 + d * 0.2;
+    if (far < g) g = far;
+    lo = 2;
+  }
+  const s = (SHADES - 1) - (g | 0);
+  return s < lo ? lo : s > SHADES - 1 ? SHADES - 1 : s;
 }
 
 function renderWorld(cam) {
@@ -2305,7 +2314,7 @@ function renderWorld(cam) {
   /* Ceilings dim with distance, which on open sky only shows up as bands of blue marching
      back to the horizon. A flat-lit ceiling takes the same bank at every distance. */
   const cFlat = cTex.flatLit ? cTex.shades[SHADES - 1] : null;
-  shadeFloor = cTex.flatLit ? SHADES >> 1 : 0;
+  skyLit = !!cTex.flatLit;
 
   for (let y = horizon + 1; y < RH; y++) {
     const p = y - horizon;
