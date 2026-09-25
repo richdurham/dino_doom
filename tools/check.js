@@ -11,7 +11,8 @@
  *   3. levels  — the shipped floors pass the game's OWN editor audit (reachable exit,
  *                key not locked behind its own gate, no tree plugging a corridor)
  *   4. palette — no two editor swatches are perceptually indistinguishable
- *   5. smoke   — every floor survives a burst of play with all the dinos awake
+ *   5. goals   — a floor's exit footprint stays hidden until its goal is met, then appears
+ *   6. smoke   — every floor survives a burst of play with all the dinos awake
  *
  * The level check calls getEditorValidation() rather than reimplementing its rules, so it
  * cannot drift from what the in-game editor tells a player.
@@ -80,7 +81,7 @@ console.log('\nsyntax');
     check('floor ' + i + ' "' + name + '" is 24 rows of 24', shape.rows === 24 && !shape.bad.length,
       shape.rows !== 24 ? shape.rows + ' rows' :
         shape.bad.map(function (p) { return 'row ' + p[0] + ' is ' + p[1] + ' wide'; }).join('; '));
-    const v = JSON.parse(ev('JSON.stringify((function(){ var r = getEditorValidation(LEVELS[' + i + '].grid);' +
+    const v = JSON.parse(ev('JSON.stringify((function(){ var r = getEditorValidation(LEVELS[' + i + '].grid, goalOf(LEVELS[' + i + ']), !!LEVELS[' + i + '].bossKey);' +
       ' return { valid: r.valid, errors: r.errors, warnings: r.warnings, trees: r.treeIssues.size, counts: r.counts }; })())'));
     check('floor ' + i + ' "' + name + '" audits clean', v.valid && v.trees === 0,
       v.errors.concat(v.trees ? [v.trees + ' tree(s) blocking a passage'] : []).join('; '));
@@ -144,7 +145,70 @@ console.log('\nsyntax');
   check(`no two swatches are closer than dE ${MIN_DE}`, clashes.length === 0, clashes.join('; '));
   console.log(`        closest pair: ${closest.a.label} vs ${closest.b.label} at dE ${closest.d.toFixed(1)}`);
 
-  /* ----------------------------------------------------------------- 5. smoke */
+  /* ----------------------------------------------------------------- 5. goals */
+  /* Each floor is played up to the edge of its goal and then over it: standing on the exit's
+     square beforehand must not end the floor, and meeting the goal must make it appear. */
+  console.log('\ngoals (the exit appears only once the floor\'s goal is met)');
+  ev('startGame(false);');
+  for (let i = 0; i < count; i++) {
+    const name = ev('LEVELS[' + i + '].name');
+    const g = JSON.parse(ev(`JSON.stringify((function () {
+      loadLevel(${i}, true); mode = 'play';
+      var goal = W.goal, hiddenAtStart = !W.exit.alive;
+      if (goal === 'none') return { goal: goal, ok: !hiddenAtStart, why: 'exit hidden on a floor with no goal' };
+      if (!hiddenAtStart) return { goal: goal, ok: false, why: 'exit visible before the goal is met' };
+      P.x = W.exit.x; P.y = W.exit.y; P.invT = 1e9;
+      W.things.forEach(function (t) { if (t.kind === 'dino') t.state = 'sleep'; });
+      for (var f = 0; f < 10; f++) update(1 / 60);
+      if (mode !== 'play') return { goal: goal, ok: false, why: 'walking onto the hidden exit ended the floor' };
+      P.x = W.spawn.x; P.y = W.spawn.y;
+      var todo = W.things.filter(function (t) {
+        return goal === 'eggs' ? (t.kind === 'item' && t.type === 'egg') :
+          goal === 'boss' ? (t.kind === 'dino' && t.isBoss) : t.kind === 'dino';
+      });
+      todo.slice(0, -1).forEach(function (t) { goal === 'eggs' ? pickup(t) : scareOff(t); });
+      if (W.exit.alive) return { goal: goal, ok: false, why: 'exit appeared one short of the goal' };
+      todo.slice(-1).forEach(function (t) { goal === 'eggs' ? pickup(t) : scareOff(t); });
+      return { goal: goal, ok: W.exit.alive && W.goalMet, why: 'exit did not appear once the goal was met' };
+    })())`));
+    check('floor ' + i + ' "' + name + '" (goal: ' + g.goal + ')', g.ok, g.why);
+  }
+
+  /* "Boss drops key": the Iron Forge's exit sits behind a key gate and the Robo-Spinosaurus
+     carries the only key. The audit must only accept that with the option on, and in play the
+     key must fall where it dies and open the gate onto the exit. */
+  const bk = JSON.parse(ev(`JSON.stringify((function () {
+    var i = LEVELS.findIndex(function (L) { return L.bossKey; });
+    if (i < 0) return { none: true };
+    var L = LEVELS[i];
+    var flaggedWithout = !getEditorValidation(L.grid, goalOf(L), false).valid;
+    var validWith = getEditorValidation(L.grid, goalOf(L), true).valid;
+    loadLevel(i, true); mode = 'play'; P.invT = 1e9;
+    var boss = W.things.find(function (t) { return t.kind === 'dino' && t.isBoss; });
+    var keysBefore = W.things.filter(function (t) { return t.type === 'key' && t.alive; }).length;
+    scareOff(boss);
+    var key = W.things.find(function (t) { return t.type === 'key' && t.alive; });
+    var dropped = !!key && Math.hypot(key.x - boss.x, key.y - boss.y) < 0.01;
+    if (key) pickup(key);
+    // walk up to the gate in front of the exit and let it swing open
+    var gate = null;
+    W.doors.forEach(function (d, idx) { if (d.locked && Math.abs((idx % MW) + 0.5 - W.exit.x) + Math.abs(((idx / MW) | 0) + 0.5 - W.exit.y) <= 1) gate = { d: d, x: (idx % MW) + 0.5, y: ((idx / MW) | 0) + 1.5 }; });
+    if (!gate) return { name: L.name, flaggedWithout: flaggedWithout, validWith: validWith, keysBefore: keysBefore, dropped: dropped, opened: false };
+    P.x = gate.x; P.y = gate.y;
+    for (var f = 0; f < 90; f++) update(1 / 60);
+    return { name: L.name, flaggedWithout: flaggedWithout, validWith: validWith, keysBefore: keysBefore, dropped: dropped,
+      opened: gate.d.open >= 1 && !solidAt(gate.x, gate.y - 1) };
+  })())`));
+  if (bk.none) check('a shipped floor uses "boss drops key"', false, 'no floor has bossKey set');
+  else {
+    check('"' + bk.name + '": the audit needs "boss drops key" to reach its exit', bk.flaggedWithout && bk.validWith,
+      'flagged without the option: ' + bk.flaggedWithout + ', valid with it: ' + bk.validWith);
+    check('"' + bk.name + '": beating the boss drops the key, and it opens the gate to the exit',
+      bk.keysBefore === 0 && bk.dropped && bk.opened,
+      'keys before: ' + bk.keysBefore + ', dropped at the boss: ' + bk.dropped + ', gate opened: ' + bk.opened);
+  }
+
+  /* ----------------------------------------------------------------- 6. smoke */
   console.log('\nsmoke (900 frames a floor, every dino awake)');
   ev('startGame(false);');
   for (let i = 0; i < count; i++) {

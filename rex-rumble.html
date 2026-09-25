@@ -235,9 +235,18 @@ body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
           <option value="temple">Ceil: Temple</option>
           <option value="sky">Ceil: Sky</option>
         </select>
+        <select id="edGoal" class="ed-sel" title="What has to happen before the exit footprint appears">
+          <option value="none">Exit: no goal, just find it</option>
+          <option value="boss">Exit: beat the boss</option>
+          <option value="dinos">Exit: scare off all dinos</option>
+          <option value="eggs">Exit: find all eggs</option>
+        </select>
         <label style="font-size:13px;display:flex;align-items:center;gap:6px">
           Height: <span id="edCeilVal" style="color:var(--egg);font-weight:600">2.80x</span>
           <input type="range" id="edCeilH" min="1.0" max="4.0" step="0.1" value="2.8" style="width:70px">
+        </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px" title="When the floor's last boss is beaten, it drops the bone key for the key gates (K)">
+          <input type="checkbox" id="edBossKey"> Boss drops key
         </label>
         <button id="edBtnPlay" class="ed-btn accent">▶ Playtest</button>
         <button id="edBtnExport" class="ed-btn">Export</button>
@@ -2048,7 +2057,7 @@ function buildArt() {
 }
 // Level data: generated grids. Legend in MAPKEY below.
 const LEVELS=[
-{name:'Verdant Canopy',ceilH:2.80,sub:'Open sky, towering pines, and something in the ferns',floor:'grass',ceil:'sky',boss:false,grid:[
+{name:'Verdant Canopy',ceilH:2.80,sub:'Open sky, towering pines, and something in the ferns',floor:'grass',ceil:'sky',goal:'none',grid:[
 "%%%%%%%%%%%%%%%%%%%%%%%%",
 "%%..P......%%%....$..%%%",
 "%%...T..T...%%..T..T.%%%",
@@ -2074,7 +2083,7 @@ const LEVELS=[
 "%%%.....$T...%%.......%%",
 "%%%%%%%%%%%%%%%%%%%%%%%%"
 ]},
-{name:'Fernback Ruins',ceilH:2.20,sub:'Stomp around and find the way out',floor:'grass',ceil:'canopy',boss:false,grid:[
+{name:'Fernback Ruins',ceilH:2.20,sub:'Stomp around and find the way out',floor:'grass',ceil:'canopy',goal:'none',grid:[
 "%%%%%%%%%%%%%%%%%%%%%%%%",
 "%%%%%%%%%%.m%%%%%%%%%%%%",
 "%%......$%..%........$%%",
@@ -2100,7 +2109,7 @@ const LEVELS=[
 "%%%%%%%%%%s.%%%%%%%%%%%%",
 "%%%%%%%%%%%%%%%%%%%%%%%%"
 ]},
-{name:'Murky Bayou',ceilH:3.00,sub:'Watch the ripples — something is swimming',floor:'water',ceil:'canopy',boss:false,grid:[
+{name:'Murky Bayou',ceilH:3.00,sub:'Something with horns is guarding the bone gate',floor:'water',ceil:'canopy',goal:'boss',grid:[
 "MMMMMMMMMMMMMMMMMMMMMMMM",
 "MM..P......MMM....$..MMM",
 "MM....T.....MM..T..T.MMM",
@@ -2120,13 +2129,13 @@ const LEVELS=[
 "MMMMM....MMMMMMM..$T.bMM",
 "MMMM.T....MMMMMM...r..MM",
 "MM...$T....MMMMM...m..MM",
-"MM..s.......MMMM.T....MM",
+"MM..s.......MMMM.T..C.MM",
 "MM..........MMMM......MM",
 "MMMMMMMMMMMMMMMMMMMKMMMM",
 "MMM.E....b.m..b......$MM",
 "MMMMMMMMMMMMMMMMMMMMMMMM"
 ]},
-{name:'Bubbling Basalt',ceilH:2.40,sub:'The horned terror hunts in the volcanic heat',floor:'ash',ceil:'cave',boss:true,grid:[
+{name:'Bubbling Basalt',ceilH:2.40,sub:'Mind the lava — the raptors like it hot',floor:'ash',ceil:'cave',goal:'none',grid:[
 "LLLLLLLLLLLLLLLLLLLLLLLL",
 "LLLLLLLLLLLLLLLLLLLLLLLL",
 "LL.P..rLLLLLLLLLL.r.k.LL",
@@ -2139,7 +2148,7 @@ const LEVELS=[
 "LL.LLLLLLLL..LLLLLLLL.LL",
 "LL.LLLLLs...t..$LLLLL.LL",
 "LL.LLLLL.r#...r.LLLLL.LL",
-"LLrLLLLL...C.#..LLLLLrLL",
+"LLrLLLLL.....#..LLLLLrLL",
 "LL.LLLLL$..m....LLLLL.LL",
 "LL.LLLLLLLL..LLLLLLLL.LL",
 "LL.LLLLLLLL..LLLLLLLL.LL",
@@ -2152,7 +2161,7 @@ const LEVELS=[
 "LLLLLLLLLLLLLLLLLLLLLLLL",
 "LLLLLLLLLLLLLLLLLLLLLLLL"
 ]},
-{name:'The Bone Throne',ceilH:3.20,sub:'Somebody big lives up there',floor:'tile',ceil:'temple',boss:true,grid:[
+{name:'The Bone Throne',ceilH:3.20,sub:'Somebody big lives up there',floor:'tile',ceil:'temple',goal:'boss',grid:[
 "GGGGGGGGGGGGGGGGGGGGGGGG",
 "GGGGGGGGGGGGGGGGGGGGGGGG",
 "GGG$m......$$......m$GGG",
@@ -2178,10 +2187,10 @@ const LEVELS=[
 "GGGGGGGGGGGPmGGGGGGGGGGG",
 "GGGGGGGGGGGGGGGGGGGGGGGG"
 ]},
-{name:'The Iron Forge',ceilH:3.40,sub:'Something mechanical is breathing in the dark',floor:'plate',ceil:'cave',boss:true,grid:[
+{name:'The Iron Forge',ceilH:3.40,sub:'Something mechanical is breathing in the dark',floor:'plate',ceil:'cave',goal:'none',bossKey:true,grid:[
 "IIIIIIIIIIIIIIIIIIIIIIII",
-"IIIIIIIIIIIIIIIIIIIIIIII",
-"III$m.......E.......m$II",
+"IIIIIIIIIII.E.IIIIIIIIII",
+"III$m......IKI......m$II",
 "III.................s.II",
 "III....L...........L..II",
 "III.........S.........II",
@@ -2213,6 +2222,23 @@ const FACTORY_LEVELS = JSON.parse(JSON.stringify(LEVELS));
 const FLOOR_TEXS = ['grass', 'water', 'ash', 'tile', 'wood', 'mud', 'plate'];
 const CEIL_TEXS = ['canopy', 'cave', 'temple', 'sky'];
 
+/* What has to happen before a floor's exit footprint appears. Until then it isn't there at all. */
+const EXIT_GOALS = ['none', 'boss', 'dinos', 'eggs'];
+const GOAL_TEXT = {
+  boss: 'Defeat the boss to open the exit.',
+  dinos: 'Scare off every dino to open the exit.',
+  eggs: 'Find every egg to open the exit.'
+};
+const BOSS_TILES = /[CXS]/;
+
+/* A floor's exit goal. Floors saved or exported before goals existed only carry a `boss` flag,
+   and the editor never let anyone set that flag, so a boss painted onto such a floor locked
+   nothing. For those, any boss on the grid makes the goal "defeat the boss". */
+function goalOf(L) {
+  if (EXIT_GOALS.indexOf(L.goal) >= 0) return L.goal;
+  return L.boss === true || (Array.isArray(L.grid) && L.grid.some(function (r) { return BOSS_TILES.test(r); })) ? 'boss' : 'none';
+}
+
 function padGrid(grid) {
   const rows = [];
   for (let y = 0; y < 24; y++) rows.push(String(grid[y] === undefined ? '' : grid[y]).padEnd(24, '.').slice(0, 24));
@@ -2229,13 +2255,15 @@ function cleanLevel(L, base) {
     sub: typeof L.sub === 'string' ? L.sub.slice(0, 80) : base.sub,
     floor: FLOOR_TEXS.indexOf(L.floor) >= 0 ? L.floor : base.floor,
     ceil: CEIL_TEXS.indexOf(L.ceil) >= 0 ? L.ceil : base.ceil,
-    boss: typeof L.boss === 'boolean' ? L.boss : !!base.boss,
+    goal: EXIT_GOALS.indexOf(L.goal) >= 0 ? L.goal :
+      goalOf({ boss: typeof L.boss === 'boolean' ? L.boss : base.boss, grid: L.grid }),
+    bossKey: typeof L.bossKey === 'boolean' ? L.bossKey : !!base.bossKey,
     grid: padGrid(L.grid)
   };
 }
 
 function levelKey(L) {
-  return [L.name, L.ceilH, L.sub, L.floor, L.ceil, !!L.boss, L.grid.join('|')].join('~');
+  return [L.name, L.ceilH, L.sub, L.floor, L.ceil, goalOf(L), !!L.bossKey, L.grid.join('|')].join('~');
 }
 
 function loadSavedCustomLevels() {
@@ -2332,7 +2360,7 @@ function buildLevel(idx) {
     doorTex: isOutdoor ? TEX.vinedoor : TEX.door,
     keyDoorTex: isOutdoor ? TEX.bonegate : TEX.keydoor,
     eggsTotal: 0, eggs: 0, scared: 0, dinosTotal: 0,
-    hasKey: false, keyNeeded: false, boss: L.boss, bossAlive: false,
+    hasKey: false, keyNeeded: false, goal: goalOf(L), goalMet: false, bossKey: !!L.bossKey,
     // only one raptor leaves the circle at a time, so a pack reads as a hunt, not a blender
     packPounce: 0,
     spawn: { x: 1.5, y: 1.5 }, exit: null, time: 0
@@ -2364,9 +2392,9 @@ function buildLevel(idx) {
       else if (ch === 'p') spawnDino(w, 'ptero', cx, cy);
       else if (ch === 'c') spawnDino(w, 'carnotaurus', cx, cy);
       else if (ch === 'b') spawnDino(w, 'borealosuchus', cx, cy);
-      else if (ch === 'C') { spawnDino(w, 'carnotaurus', cx, cy, true); w.bossAlive = true; }
-      else if (ch === 'X') { spawnDino(w, 'king', cx, cy, true); w.bossAlive = true; }
-      else if (ch === 'S') { spawnDino(w, 'spino', cx, cy, true); w.bossAlive = true; }
+      else if (ch === 'C') spawnDino(w, 'carnotaurus', cx, cy, true);
+      else if (ch === 'X') spawnDino(w, 'king', cx, cy, true);
+      else if (ch === 'S') spawnDino(w, 'spino', cx, cy, true);
       else if (ch === '$') { spawnItem(w, 'egg', cx, cy); w.eggsTotal++; }
       else if (ch === 'm') spawnItem(w, 'meat', cx, cy);
       else if (ch === 'k') spawnItem(w, 'key', cx, cy);
@@ -2381,6 +2409,10 @@ function buildLevel(idx) {
   // Now every wall and door is known, so a tree that would plug a 1-wide passage or a doorway is dropped
   // (the same test the editor uses to flag it).
   treeCells.forEach(function (p) { spawnTree(w, p[0], p[1]); });
+  // the exit footprint stays hidden (not alive: not drawn, not on the map, can't be walked into)
+  // until the floor's goal is met — which, for some floors, is already true
+  w.goalMet = goalDone(w);
+  if (w.exit) w.exit.alive = w.goalMet;
   // scatter a little scenery on leftover floor
   const rnd = rngFrom(1000 + idx * 7);
   const decor = idx === 0 ? ['fern', 'stump', 'fern'] :
@@ -3349,6 +3381,7 @@ function loadLevel(i, retry) {
   hideOverlay();
   say(W.def.name, true);
   say(W.def.sub);
+  if (!W.goalMet) say(GOAL_TEXT[W.goal]);
   tryLock();
 }
 
@@ -3358,6 +3391,7 @@ function pause() {
   if (document.pointerLockElement === view) document.exitPointerLock();
   overlay('Paused', 'Catch your breath.', '<div class="how"><p>Eggs found: ' + W.eggs + ' of ' + W.eggsTotal +
     '</p><p>Dinos scared off: ' + W.scared + '</p>' +
+    (W.goalMet ? '' : '<p><b>Exit:</b> ' + GOAL_TEXT[W.goal].replace(' to open the exit.', '') + ' to open it.</p>') +
     (edEditedRunning ? '<p><b>You edited this floor.</b> The changes appear when you restart it.</p>' : '') + '</div>', [
     { label: 'Keep stomping', go: resume },
     { label: 'Restart this floor', ghost: true, go: function () { loadLevel(curLevel, true); } },
@@ -3502,6 +3536,25 @@ function hurtDino(t, dmg, kind, punish) {
   else if (Math.random() < 0.5) SFX.growl(t.def.voice);
 }
 
+function goalDone(w) {
+  if (w.goal === 'boss') return !w.things.some(function (t) { return t.kind === 'dino' && t.isBoss && t.alive && t.state !== 'poof'; });
+  if (w.goal === 'dinos') return w.scared >= w.dinosTotal;
+  if (w.goal === 'eggs') return w.eggs >= w.eggsTotal;
+  return true;
+}
+
+/* Called whenever something that counts toward a goal happens: the first time it is met,
+   the footprint appears and is marked on the minimap so it can be found. */
+function checkGoal() {
+  if (W.goalMet || !goalDone(W)) return;
+  W.goalMet = true;
+  if (!W.exit) return;
+  W.exit.alive = true;
+  W.seen[(W.exit.y | 0) * MW + (W.exit.x | 0)] = 1;
+  SFX.big();
+  say('The exit footprint has appeared — check the map!', true);
+}
+
 function scareOff(t) {
   t.state = 'poof'; t.t = 0; t.spr = 'poof'; t.frame = 0;
   t.scale = Math.min(1.3, t.def.scale) * 1.05; t.vOff = -0.12; t.flash = 0;
@@ -3510,12 +3563,14 @@ function scareOff(t) {
   SFX.scare();
   say(t.type === 'spino' ? 'The Robo-Spinosaurus sputters and shuts down!' : t.def.name + ' ran off!');
   P.roarMeter = 0;
-  if (t.type === 'king' || t.isBoss) {
-    W.bossAlive = false;
-    say(t.type === 'king' ? 'The Bone King is gone! Head for the footprint.' :
-      t.type === 'spino' ? 'The forge falls quiet. Head for the footprint.' : 'The Carnotaurus fell! Head for the footprint.', true);
+  if (t.isBoss) say(t.type === 'king' ? 'The Bone King is gone!' : t.type === 'spino' ? 'The forge falls quiet.' : 'The Carnotaurus fell!', true);
+  // on a "boss drops key" floor, the last boss standing carries the bone key
+  if (t.isBoss && W.bossKey && !W.things.some(function (o) { return o.kind === 'dino' && o.isBoss && o.alive && o.state !== 'poof'; })) {
+    spawnItem(W, 'key', t.x, t.y);
+    say('It dropped the bone key!', true);
   }
-  if (Math.random() < 0.34) spawnItem(W, 'meat', t.x, t.y);
+  checkGoal();
+  if (Math.random() < 0.34) spawnItem(W, 'meat', t.x + 0.3, t.y);
 }
 
 function doRoar() {
@@ -4126,7 +4181,11 @@ function update(dt) {
     const dd = Math.hypot(dx2, dy2);
     if (d.open < 1 && dd < 2.2) {      // far enough out that a sprint doesn't reach a still-closed door
       if (d.locked && !P.keys) {
-        if (!d.nagged) { d.nagged = 1; say(W.isOutdoor ? 'Locked bone gate. Find the bone key.' : 'Locked. Find the bone key.'); }
+        if (!d.nagged) {
+          d.nagged = 1;
+          const hint = W.bossKey ? 'The boss has the bone key.' : 'Find the bone key.';
+          say(W.isOutdoor ? 'Locked bone gate. ' + hint : 'Locked. ' + hint);
+        }
       } else {
         if (!d.moving) { d.moving = 1; SFX.door(); if (d.locked) say(W.isOutdoor ? 'The bone gate unlatches!' : 'The bone key fits!'); }
       }
@@ -4149,16 +4208,7 @@ function update(dt) {
     }
     if (t.kind === 'exit') {
       t.frame = (W.time * 4 | 0) % 2;
-      if (Math.hypot(t.x - P.x, t.y - P.y) < 0.7) {
-        if (W.boss && W.bossAlive) {
-          if (!t.nag || W.time - t.nag > 3) {
-            t.nag = W.time;
-            const b = W.things.find(function (o) { return o.kind === 'dino' && o.isBoss && o.alive && o.state !== 'poof'; });
-            say(b && b.type === 'king' ? 'The Bone King is still stomping about!' :
-              b && b.type === 'spino' ? 'The Robo-Spinosaurus is still clanking about!' : 'Defeat the floor boss to unlock the exit!');
-          }
-        } else levelClear();
-      }
+      if (Math.hypot(t.x - P.x, t.y - P.y) < 0.7) levelClear();
       continue;
     }
     if (t.spr === 'torch' || t.spr === 'exit') t.frame = (W.time * 6 | 0) % 2;
@@ -4200,6 +4250,7 @@ function pickup(t) {
   if (t.type === 'egg') {
     W.eggs++; P.eggs++; totalScore += 50; SFX.pick();
     if (W.eggs === W.eggsTotal) { say('Every egg on this floor. Nice.', true); SFX.big(); }
+    checkGoal();
   } else if (t.type === 'meat') {
     if (P.hp >= P.maxhp) { totalScore += 30; say('+30 (already stuffed)'); }
     else { P.hp = Math.min(P.maxhp, P.hp + 28); healFx = 1; say('Snack! Feeling better.'); }
@@ -4718,6 +4769,17 @@ function initEditorUI() {
     LEVELS[edFloorIdx].ceil = this.value;
   });
 
+  document.getElementById('edBossKey').addEventListener('change', function () {
+    LEVELS[edFloorIdx].bossKey = this.checked;
+    renderEditorGrid();                // it changes whether the key gates can be opened
+  });
+
+  document.getElementById('edGoal').addEventListener('change', function () {
+    LEVELS[edFloorIdx].goal = this.value;
+    delete LEVELS[edFloorIdx].boss;
+    renderEditorGrid();                // the audit depends on the goal
+  });
+
   const ceilH = document.getElementById('edCeilH');
   const ceilVal = document.getElementById('edCeilVal');
   ceilH.addEventListener('input', function () {
@@ -4834,6 +4896,8 @@ function loadFloorToEditor(floorIdx) {
   document.getElementById('edName').value = lvl.name || ('Floor ' + edFloorIdx);
   document.getElementById('edFloorTex').value = lvl.floor || 'grass';
   document.getElementById('edCeilTex').value = lvl.ceil || 'canopy';
+  document.getElementById('edGoal').value = goalOf(lvl);
+  document.getElementById('edBossKey').checked = !!lvl.bossKey;
   const ch = lvl.ceilH || 1.35;
   document.getElementById('edCeilH').value = ch;
   document.getElementById('edCeilVal').textContent = ch.toFixed(2) + 'x';
@@ -4870,7 +4934,7 @@ function paintCell(gx, gy, chToPaint) {
   renderEditorGrid();
 }
 
-function getEditorValidation(grid) {
+function getEditorValidation(grid, goal, bossKey) {
   const tiles = new Uint8Array(MW * MH);
   const doors = new Map();
   let playerCount = 0, exitCount = 0, eggCount = 0, keyCount = 0, keyDoorCount = 0, dinoCount = 0, treeCount = 0;
@@ -4927,7 +4991,8 @@ function getEditorValidation(grid) {
   }
 
   // Reachability audit: flood-fill from the spawn (doors open, trees block) with and without key gates.
-  let exitLost = false, keyLost = false, eggsLost = 0;
+  let exitLost = false, keyLost = false, eggsLost = 0, dinosLost = 0, bossesLost = 0, bossCount = 0;
+  for (let i = 0; i < MW * MH; i++) if (BOSS_TILES.test(grid[(i / MW) | 0][i % MW])) bossCount++;
   if (playerCount === 1) {
     const flood = function (passGates) {
       const seen = new Uint8Array(MW * MH), stack = [];
@@ -4948,13 +5013,18 @@ function getEditorValidation(grid) {
     };
     const withGates = flood(true), noGates = flood(false);
     let keyOK = false;
-    for (let i = 0; i < MW * MH; i++) if (grid[(i / MW) | 0][i % MW] === 'k' && noGates[i]) keyOK = true;
+    // a key source is a key tile, or on a "boss drops key" floor a boss, reachable without passing a gate
+    for (let i = 0; i < MW * MH; i++) {
+      const c = grid[(i / MW) | 0][i % MW];
+      if (noGates[i] && (c === 'k' || (bossKey && BOSS_TILES.test(c)))) keyOK = true;
+    }
     const eff = keyOK ? withGates : noGates;               // gates only count as passable if a key can be fetched first
-    keyLost = keyCount > 0 && !keyOK;
+    keyLost = (keyCount > 0 || (bossKey && bossCount > 0)) && !keyOK;
     for (let i = 0; i < MW * MH; i++) {
       const c = grid[(i / MW) | 0][i % MW];
       if (c === 'E' && !eff[i]) exitLost = true;
       else if (c === '$' && !eff[i]) eggsLost++;
+      else if ('rtpcbCXS'.indexOf(c) >= 0 && !eff[i]) { dinosLost++; if (BOSS_TILES.test(c)) bossesLost++; }
     }
   }
 
@@ -4964,10 +5034,19 @@ function getEditorValidation(grid) {
   if (exitCount === 0) errors.push('No level exit (E)');
   if (treeIssues.size > 0) errors.push(treeIssues.size + ' tree(s) blocking passages!');
   if (exitLost) errors.push("Exit (E) can't be reached from the spawn (P)");
-  if (keyLost) errors.push("The key (k) can't be reached without passing a key gate (K)");
+  if (keyLost) errors.push(bossKey ? "No key (k) or key-dropping boss can be reached without passing a key gate (K)"
+    : "The key (k) can't be reached without passing a key gate (K)");
   if (eggsLost > 0) warnings.push(eggsLost + ' egg(s) ($) can\'t be reached');
   if (eggCount === 0) warnings.push('0 eggs placed ($)');
-  if (keyDoorCount > 0 && keyCount === 0) warnings.push('Key door (K) exists with no key (k)');
+  if (keyDoorCount > 0 && keyCount === 0 && !(bossKey && bossCount > 0)) warnings.push('Key door (K) exists with no key (k)');
+  if (bossKey && bossCount === 0) warnings.push('"Boss drops key" is on, but no boss is placed');
+  // the exit goal has to be something a player can actually finish, or the floor can't be left
+  if (goal === 'boss' && bossCount === 0) warnings.push('Exit waits for a boss, but none is placed: it opens at once');
+  if (goal === 'boss' && bossesLost > 0) errors.push("A boss can't be reached, so the exit never appears");
+  if (goal === 'dinos' && dinoCount === 0) warnings.push('Exit waits for every dino, but none are placed: it opens at once');
+  if (goal === 'dinos' && dinosLost > 0) errors.push(dinosLost + " dino(s) can't be reached, so the exit never appears");
+  if (goal === 'eggs' && eggCount === 0) warnings.push('Exit waits for every egg, but none are placed: it opens at once');
+  if (goal === 'eggs' && eggsLost > 0) errors.push(eggsLost + " egg(s) can't be reached, so the exit never appears");
 
   return {
     valid: errors.length === 0,
@@ -5020,7 +5099,7 @@ function renderEditorGrid() {
   const cw = edCanvas.width, ch = edCanvas.height;
   const cellW = cw / MW, cellH = ch / MH;
 
-  const val = getEditorValidation(edGrid);
+  const val = getEditorValidation(edGrid, goalOf(LEVELS[edFloorIdx]), !!LEVELS[edFloorIdx].bossKey);
 
   edCtx.clearRect(0, 0, cw, ch);
 
@@ -5120,7 +5199,7 @@ function renderEditorGrid() {
 function playtestEditorFloor() {
   saveCurrentEditorFloor();
   saveCustomLevelsToStorage();
-  const val = getEditorValidation(edGrid);
+  const val = getEditorValidation(edGrid, goalOf(LEVELS[edFloorIdx]), !!LEVELS[edFloorIdx].bossKey);
   if (!val.valid) {
     if (!confirm('Warning:\n' + val.errors.join('\n') + '\n\nDo you want to playtest anyway?')) {
       return;
@@ -5144,7 +5223,8 @@ function exportEditorMap() {
   // Real JSON, so Import can read it straight back (it is also a valid JS object literal for pasting into LEVELS)
   const out = JSON.stringify({
     name: lvl.name, ceilH: lvl.ceilH, sub: lvl.sub || '', floor: lvl.floor, ceil: lvl.ceil,
-    boss: !!lvl.boss, grid: lvl.grid
+    goal: goalOf(lvl), boss: goalOf(lvl) === 'boss',   // `boss` so older copies of the game still lock the exit
+    bossKey: !!lvl.bossKey, grid: lvl.grid
   }, null, 2);
   document.getElementById('edModalTitle').textContent = 'Export Floor ' + edFloorIdx + ' (' + lvl.name + ')';
   const ta = document.getElementById('edModalText');
@@ -5198,7 +5278,10 @@ function applyImportedMap() {
       document.getElementById('edCeilTex').value = c.ceil;
       document.getElementById('edCeilH').value = c.ceilH;
       document.getElementById('edCeilVal').textContent = c.ceilH.toFixed(2) + 'x';
-      LEVELS[edFloorIdx].boss = c.boss; LEVELS[edFloorIdx].sub = c.sub;
+      LEVELS[edFloorIdx].goal = c.goal; delete LEVELS[edFloorIdx].boss; LEVELS[edFloorIdx].sub = c.sub;
+      document.getElementById('edGoal').value = c.goal;
+      LEVELS[edFloorIdx].bossKey = c.bossKey;
+      document.getElementById('edBossKey').checked = c.bossKey;
     }
   } catch (e) {
     const lines = raw.split(/\r?\n/).map(function (l) { return l.trim().replace(/^["',]|["',]$/g, ''); }).filter(function (l) { return l.length > 0; });

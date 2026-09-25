@@ -33,10 +33,10 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 * **6 Distinct Prehistoric Biomes**:
   1. **Floor 0: Verdant Canopy** — Open primeval forest under a wide blue sky, with multi-layered depth trees, 100% organic tree-walls, and zero artificial doors.
   2. **Floor 1: Fernback Ruins** — Ancient stone pillars overgrown by primeval pines with hanging vine curtains.
-  3. **Floor 2: Murky Bayou** — Deep cypress swamp with water ripples and a prehistoric bone gate locked by an amber fossil key.
-  4. **Floor 3: Bubbling Basalt** — Volcanic obsidian caverns, ash floors, and the Carnotaurus sub-boss lair.
+  3. **Floor 2: Murky Bayou** — Deep cypress swamp with water ripples and a prehistoric bone gate locked by an amber fossil key, guarded by the Carnotaurus sub-boss. The exit only appears once it falls.
+  4. **Floor 3: Bubbling Basalt** — Volcanic obsidian caverns, ash floors, and a raptor pack that likes the heat.
   5. **Floor 4: The Bone Throne** — Golden temple arena and the showdown against The Bone King.
-  6. **Floor 5: The Iron Forge** — Riveted iron walls, steel floors and lava pillars for cover. The final fight against the Robo-Spinosaurus.
+  6. **Floor 5: The Iron Forge** — Riveted iron walls, steel floors and lava pillars for cover. The exit is sealed behind a key gate, and the Robo-Spinosaurus carries the key.
 * **Read-the-tell Combat**: Every dino pulses **red** while it winds up, so a strike can be seen coming and stepped away from.
   * **Claw** is fast and wide, hits three at once, and lands early enough to knock a dino clean off a strike it has already started.
   * **Bite** is slow and roots you where you stand — but it does **double damage** to a dino already committed to its own move. Reading the flash and biting into it beats swinging on reflex; per second, spamming the big attack is the worse habit.
@@ -46,6 +46,9 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
   * Interactive grid painter directly in the browser (open via `Pause Menu` or `Title Screen`).
   * Real-time safety validation (ensures zero trees block 1-square passages or doors).
   * Texture pickers, ceiling height slider (`1.0x` to `4.0x`), entity counters, and 100% reachability audits.
+  * **Exit goals**: by default a floor has no goal: the green footprint is there from the start and you just have to find it (past any key gates). A floor can instead hold the footprint back until you beat the boss, scare off every dino, or find every egg; when that happens it appears with a fanfare and shows on the minimap. The Murky Bayou and the Bone Throne use *beat the boss*; the Iron Forge uses *boss drops key*.
+  * **Boss drops key**: tick it and the floor's last boss drops the bone key where it falls, so an exit behind a key gate (`K`) can only be reached by beating the boss.
+  * The audit flags any of these that can't be finished: a walled-in boss, an unreachable egg, or a key (or key-dropping boss) that sits behind its own gate.
   * The grid takes whatever room the window has and never clips — and if it ever runs out, that side scrolls like the palette does. Embedded on the web page, opening the editor gives the frame the extra height a square map needs.
   * Saves the floors you change to `localStorage` (floors you haven't touched keep following updates to the game), with one-click **Playtest**, **Export JSON**, **Import**, and **Reset Floor** to factory defaults. Imports with a typo'd texture or an out-of-range ceiling height fall back to safe values instead of breaking the floor.
 
