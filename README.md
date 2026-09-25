@@ -10,7 +10,7 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
 
 ## 🌟 Features
 
-* **Pure Vanilla HTML5 / JS**: Zero bundlers, zero build steps, and it works offline. Just open `rex-rumble.html` in any modern web browser to play! (The rounded *Fredoka* font is an optional web font loaded in the background when you're online; offline, the game uses your system font.)
+* **Pure Vanilla HTML5 / JS**: Zero bundlers, zero build steps, and it works offline. Just open `rex-rumble.html` in any modern web browser to play! The rounded *Fredoka* font is embedded in the file too, so it looks the same with no internet connection.
 * **Touch controls for phones and tablets**: a floating walk stick under your left thumb, drag-to-look on the right (up and down too), and thumb-sized Claw / Bite / Roar buttons that scale with your screen. The level editor works with a finger too.
 * **2.5D Raycasting Engine with Dynamic Ceilings**:
   * **Custom Heights (`ceilH`)**: Levels range from standard cavern ceilings to soaring `2.8x` redwood forest canopies and `3.2x` monumental throne halls.
@@ -105,7 +105,8 @@ GitHub Actions runs the same command on every pull request.
 
 ---
 
-## 📜 Audio Credits
+## 📜 Font & Audio Credits
+* [Fredoka](https://github.com/hafontia/Fredoka-One) by The Fredoka Project Authors, licensed under the [SIL Open Font License 1.1](fonts/OFL.txt). A Latin subset (`fonts/Fredoka.woff2`) is embedded in `rex-rumble.html`.
 * Dinosaur Roar audio effect adapted from [BESTROFLMAN on FreeSound](https://freesound.org/people/BESTROFLMAN/sounds/212433/), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 * Procedural synthesizers for bites, footstep stomps, chomp impact, and the soundtrack, all generated in real time via the Web Audio API. Effects and music sit on separate buses, and the arrangement thickens while dinos are actually hunting you.
 
