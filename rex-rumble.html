@@ -162,7 +162,9 @@ body.touch #bPause{display:block}
 body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
 /* narrow screens (tablet portrait): stack the grid above the palette instead of clipping it */
 @media (max-width:920px){
-  .ed-main{flex-direction:column;align-items:center;overflow-y:auto}
+  /* start at the top, not centred: a centred column that overflows spills past its top edge
+     too, where scrolling can't reach, and the top of the grid was lost on phones */
+  .ed-main{flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto}
   .ed-grid-wrap{width:100%;max-width:560px;flex:none}
   /* stacked, the column scrolls instead, so the grid is free to take its full width */
   #edCanvas{max-height:none}
@@ -215,6 +217,7 @@ body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
           <option value="2">Floor 2: Murky Bayou</option>
           <option value="3">Floor 3: Bubbling Basalt</option>
           <option value="4">Floor 4: The Bone Throne</option>
+          <option value="5">Floor 5: The Iron Forge</option>
         </select>
         <input id="edName" class="ed-input" style="width:140px" placeholder="Floor Name">
         <select id="edFloorTex" class="ed-sel" title="Floor Texture">
@@ -224,6 +227,7 @@ body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
           <option value="tile">Floor: Tile</option>
           <option value="wood">Floor: Wood</option>
           <option value="mud">Floor: Mud</option>
+          <option value="plate">Floor: Steel</option>
         </select>
         <select id="edCeilTex" class="ed-sel" title="Ceiling Texture">
           <option value="canopy">Ceil: Canopy</option>
@@ -841,6 +845,38 @@ function texCrag() {
   const cv = newCv(TW, TW), ctx = cv.getContext('2d'), rnd = rngFrom(103);
   blockWall(ctx, rnd, '#6b2d24', '#85372c', '#4e1e17', '#30130e', 5, 2);
   speckle(ctx, rnd, 180, 0.25, 2);
+  return cv;
+}
+
+/* riveted iron plating with a glowing seam, for the forge */
+function texIron() {
+  const cv = newCv(TW, TW), ctx = cv.getContext('2d'), rnd = rngFrom(211);
+  ctx.fillStyle = '#3a4250'; ctx.fillRect(0, 0, TW, TW);
+  for (let py = 0; py < 2; py++) for (let px = 0; px < 2; px++) {
+    const x = px * 32, y = py * 32;
+    ctx.fillStyle = (px + py) % 2 ? '#434c5b' : '#4a5363'; ctx.fillRect(x + 1, y + 1, 30, 30);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(x + 1, y + 1, 30, 3);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(x + 1, y + 28, 30, 3);
+    ctx.fillStyle = '#6d7787';
+    [[4, 4], [27, 4], [4, 27], [27, 27]].forEach(function (r) { ctx.fillRect(x + r[0], y + r[1], 2, 2); });
+  }
+  speckle(ctx, rnd, 90, 0.18, 2);
+  ctx.fillStyle = '#ff7a1a'; ctx.fillRect(0, 31, TW, 2);
+  ctx.fillStyle = 'rgba(255,200,90,0.8)'; ctx.fillRect(0, 31, TW, 1);
+  return cv;
+}
+
+/* diamond-tread steel floor */
+function texPlate() {
+  const cv = newCv(TW, TW), ctx = cv.getContext('2d'), rnd = rngFrom(223);
+  ctx.fillStyle = '#4b5260'; ctx.fillRect(0, 0, TW, TW);
+  for (let y = 0; y < TW; y += 8) for (let x = 0; x < TW; x += 8) {
+    const o = (y / 8) % 2 ? 4 : 0;
+    ctx.fillStyle = '#5f6776'; ctx.fillRect((x + o) % TW, y + 2, 4, 2);
+    ctx.fillStyle = '#383e49'; ctx.fillRect((x + o) % TW, y + 4, 4, 1);
+  }
+  speckle(ctx, rnd, 60, 0.15, 3);
+  ctx.fillStyle = '#2c313a'; ctx.fillRect(0, 0, TW, 1); ctx.fillRect(0, 0, 1, TW);
   return cv;
 }
 
@@ -1486,6 +1522,199 @@ function drawKing(ctx, mode, phase, view) {
   ctx.restore();
 }
 
+/* ---- the final boss: a robo-spinosaurus with a furnace in its chest and cannons for arms.
+   Extra modes on top of the usual four: 'inhale' (belly furnace and sail vents blaze, cheeks
+   puff — the tell for the fire breath) and 'cannon' (both arms up, muzzles glowing). ---- */
+function drawSpino(ctx, mode, phase, view) {
+  view = view || 'front';
+  const steel = '#8793a3', dark = '#4d5766', light = '#c3ccd8', rust = '#b5562b';
+  const hurt = mode === 'hurt', roar = mode === 'attack', inhale = mode === 'inhale', gun = mode === 'cannon';
+  const glow = inhale ? '#fff3a8' : roar ? '#ffd166' : '#ff8a1f';
+  const bob = Math.sin(phase * TAU) * 2;
+  const cy = 54 + bob;
+  ctx.save();
+  ctx.scale(1.5, 1.5);          // fills the 144px sprite box
+  if (hurt) { ctx.translate(48, 92); ctx.rotate(-0.12); ctx.translate(-48, -92); }
+
+  function rivets(pts) {
+    ctx.fillStyle = light;
+    pts.forEach(function (p) { ctx.beginPath(); ctx.arc(p[0], p[1], 1.3, 0, TAU); ctx.fill(); });
+  }
+  function leg(x, lift, fill) {
+    const fy = 90 - lift;
+    ctx.beginPath(); ctx.moveTo(x, cy + 8); ctx.lineTo(x + 2, fy - 12);
+    ctx.lineCap = 'round'; ctx.strokeStyle = INK; ctx.lineWidth = 17; ctx.stroke();
+    ctx.strokeStyle = fill; ctx.lineWidth = 11; ctx.stroke();
+    ell(ctx, x + 1, cy + 22 - lift * 0.5, 5, 5); ink(ctx, rust, 3);          // knee piston
+    ctx.beginPath(); ctx.moveTo(x - 10, fy); ctx.lineTo(x + 14, fy); ctx.lineTo(x + 10, fy - 9);
+    ctx.lineTo(x - 6, fy - 9); ctx.closePath(); ink(ctx, dark, 3.5);
+  }
+  function sparks() {
+    ctx.strokeStyle = '#ffe066'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+    [[30, 40, -0.6], [64, 34, 0.4], [44, 60, 2.4], [58, 58, 1.2]].forEach(function (s) {
+      for (let k = -1; k <= 1; k++) {
+        const a = s[2] + k * 0.6;
+        ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(s[0] + Math.cos(a) * 6, s[1] + Math.sin(a) * 6); ctx.stroke();
+      }
+    });
+  }
+  // the dorsal sail: steel ribs with furnace vents between them
+  function sail(x0, x1, base, top, n) {
+    ctx.beginPath(); ctx.moveTo(x0, base);
+    for (let i = 0; i <= n; i++) {
+      const u = i / n, x = x0 + (x1 - x0) * u, y = base - (base - top) * Math.sin(u * Math.PI);
+      ctx.lineTo(x - 1.5, y + 3); ctx.lineTo(x, y);
+    }
+    ctx.lineTo(x1, base); ctx.closePath(); ink(ctx, dark, 4);
+    for (let i = 1; i < n; i++) {
+      const u = i / n, x = x0 + (x1 - x0) * u, y = base - (base - top) * Math.sin(u * Math.PI);
+      ctx.beginPath(); ctx.moveTo(x, base - 2); ctx.lineTo(x, y + 5);
+      ctx.strokeStyle = steel; ctx.lineWidth = 3; ctx.stroke();
+      const mx = x - (x1 - x0) / n / 2, my = base - (base - top) * Math.sin((u - 0.5 / n) * Math.PI);
+      ctx.beginPath(); ctx.moveTo(mx, base - 4); ctx.lineTo(mx, my + 9);
+      ctx.strokeStyle = glow; ctx.lineWidth = inhale ? 3.2 : 2; ctx.stroke();
+    }
+  }
+
+  if (view === 'side') {
+    // tail
+    ctx.beginPath(); ctx.moveTo(30, cy - 4); ctx.quadraticCurveTo(10, cy - 2, 1, cy + 10);
+    ctx.quadraticCurveTo(14, cy + 8, 32, cy + 12); ctx.closePath(); ink(ctx, dark, 4.5);
+    sail(24, 64, cy - 10, 8 + bob, 6);
+    leg(34, Math.max(0, Math.sin(phase * TAU + Math.PI) * 6), dark);
+    ell(ctx, 46, cy, 24, 15, 0.05); ink(ctx, steel, 5);
+    ell(ctx, 50, cy + 6, 15, 7, 0.05); ctx.fillStyle = inhale ? '#ffb347' : light; ctx.fill();
+    rivets([[34, cy - 6], [42, cy - 9], [52, cy - 9], [60, cy - 5]]);
+    ell(ctx, 52, cy + 1, inhale ? 6 : 4, inhale ? 6 : 4); ink(ctx, glow, 2.5);     // furnace port
+    leg(50, Math.max(0, Math.sin(phase * TAU) * 6), steel);
+    // cannon arm: a stubby barrel slung under the chest
+    ctx.save(); ctx.translate(60, cy + 2); ctx.rotate(gun ? -0.35 : 0.25);
+    ctx.beginPath(); ctx.rect(0, -5, 24, 10); ink(ctx, dark, 3.5);
+    ctx.beginPath(); ctx.rect(20, -6.5, 6, 13); ink(ctx, rust, 3);
+    if (gun) { ell(ctx, 29, 0, 4, 5); ink(ctx, '#ffe27a', 2.5); }
+    ctx.restore();
+    // neck and long crocodile snout
+    const hy = 30 + bob * 0.7;
+    ctx.beginPath(); ctx.moveTo(58, cy - 6); ctx.lineTo(66, hy + 6);
+    ctx.strokeStyle = INK; ctx.lineWidth = 20; ctx.stroke();
+    ctx.strokeStyle = steel; ctx.lineWidth = 14; ctx.stroke();
+    if (inhale) { ell(ctx, 64, hy + 14, 7, 6); ink(ctx, '#ffb347', 3); }               // swelling throat
+    ell(ctx, 68, hy, 11, 9); ink(ctx, steel, 4.5);
+    const open = roar ? 11 : 2;
+    ctx.beginPath(); ctx.moveTo(70, hy - 6); ctx.lineTo(94, hy - 1); ctx.lineTo(94, hy + 3);
+    ctx.lineTo(70, hy + 3); ctx.closePath(); ink(ctx, steel, 4);
+    ctx.beginPath(); ctx.moveTo(70, hy + 4); ctx.lineTo(92, hy + 4 + open); ctx.lineTo(90, hy + 8 + open);
+    ctx.lineTo(68, hy + 9); ctx.closePath(); ink(ctx, dark, 4);
+    if (roar) { ctx.beginPath(); ctx.moveTo(72, hy + 4); ctx.lineTo(92, hy + 5); ctx.lineTo(90, hy + 3 + open);
+      ctx.closePath(); ctx.fillStyle = '#ffb347'; ctx.fill(); }
+    toothRow(ctx, 74, 92, hy + 3, 5, false);
+    ctx.fillStyle = hurt ? '#ffe066' : '#ff2a2a';
+    ctx.fillRect(64, hy - 4, 7, 3.5);                                                    // visor eye
+    ctx.beginPath(); ctx.moveTo(66, hy - 8); ctx.lineTo(74, hy - 14); ctx.lineTo(76, hy - 7);
+    ctx.closePath(); ink(ctx, rust, 3);                                                  // crest
+  } else {
+    const back = view === 'back';
+    // sail seen end-on is a tall, narrow fin rising behind the shoulders
+    ctx.beginPath(); ctx.moveTo(40, cy - 12);
+    for (let i = 0; i <= 6; i++) { const y = cy - 14 - i * 6.4; ctx.lineTo(40 + i * 0.6, y); ctx.lineTo(44, y - 3); }
+    ctx.lineTo(48, 4 + bob);
+    for (let i = 6; i >= 0; i--) { const y = cy - 14 - i * 6.4; ctx.lineTo(52, y - 3); ctx.lineTo(56 - i * 0.6, y); }
+    ctx.lineTo(56, cy - 12); ctx.closePath(); ink(ctx, dark, 4);
+    ctx.beginPath(); ctx.moveTo(48, cy - 14); ctx.lineTo(48, 12 + bob);
+    ctx.strokeStyle = glow; ctx.lineWidth = inhale ? 4 : 2.4; ctx.stroke();
+    if (back) {
+      ctx.beginPath(); ctx.moveTo(42, cy + 10); ctx.quadraticCurveTo(46, cy + 30, 48, 91);
+      ctx.quadraticCurveTo(50, cy + 30, 54, cy + 10); ctx.closePath(); ink(ctx, dark, 5);
+    }
+    leg(34, Math.max(0, Math.sin(phase * TAU) * 6), steel);
+    leg(60, Math.max(0, Math.sin(phase * TAU + Math.PI) * 6), steel);
+    ell(ctx, 48, cy, 21, 22); ink(ctx, steel, 5);
+    if (!back) {
+      ell(ctx, 48, cy + 4, 13, 15); ink(ctx, inhale ? '#ffb347' : light, 3);          // belly plate
+      ctx.strokeStyle = dark; ctx.lineWidth = 1.6;
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(38, cy + 4 + i * 6); ctx.lineTo(58, cy + 4 + i * 6); ctx.stroke(); }
+      ell(ctx, 48, cy - 6, inhale ? 8 : 5, inhale ? 8 : 5); ink(ctx, glow, 3);        // furnace core
+      if (inhale) { ell(ctx, 48, cy - 6, 3.5, 3.5); ctx.fillStyle = '#ffffff'; ctx.fill(); }
+    } else {
+      rivets([[36, cy - 12], [60, cy - 12], [34, cy + 2], [62, cy + 2], [40, cy + 14], [56, cy + 14]]);
+      ctx.fillStyle = rust; ctx.fillRect(42, cy - 4, 12, 8);
+    }
+    // cannon arms: seen down the barrel from the front, as side-slung tubes from behind
+    for (let s = -1; s <= 1; s += 2) {
+      const ax = 48 + s * 25, ay = gun ? cy - 12 : cy + 4;
+      ctx.beginPath(); ctx.moveTo(48 + s * 16, cy - 8); ctx.lineTo(ax, ay);
+      ctx.lineCap = 'round'; ctx.strokeStyle = INK; ctx.lineWidth = 11; ctx.stroke();
+      ctx.strokeStyle = dark; ctx.lineWidth = 6; ctx.stroke();
+      if (back) { ctx.beginPath(); ctx.rect(ax - 6, ay - 7, 12, 14); ink(ctx, dark, 3.5); }
+      else {
+        ell(ctx, ax, ay, 9, 9); ink(ctx, rust, 3.5);
+        ell(ctx, ax, ay, 5, 5); ink(ctx, gun ? '#ffe27a' : '#1c1f26', 2.5);
+        if (gun) { ell(ctx, ax, ay, 2.4, 2.4); ctx.fillStyle = '#ffffff'; ctx.fill(); }
+      }
+    }
+    // head: the long snout points straight at you, jaw drops for the roar
+    const hy = 22 + bob * 0.7;
+    ctx.beginPath(); ctx.moveTo(48, cy - 16); ctx.lineTo(48, hy + 6);
+    ctx.strokeStyle = INK; ctx.lineWidth = 22; ctx.stroke();
+    ctx.strokeStyle = steel; ctx.lineWidth = 16; ctx.stroke();
+    ell(ctx, 48, hy, 14, 11); ink(ctx, steel, 4.5);
+    if (!back) {
+      const open = roar ? 12 : inhale ? 1 : 3;
+      if (inhale) { ell(ctx, 35, hy + 6, 5, 5); ink(ctx, '#ffb347', 2.5); ell(ctx, 61, hy + 6, 5, 5); ink(ctx, '#ffb347', 2.5); }
+      ctx.beginPath(); ctx.moveTo(40, hy + 4); ctx.lineTo(56, hy + 4); ctx.lineTo(53, hy + 16 + open);
+      ctx.lineTo(43, hy + 16 + open); ctx.closePath(); ink(ctx, dark, 4);                 // lower jaw
+      if (roar) { ell(ctx, 48, hy + 12 + open * 0.4, 5, 3 + open * 0.4); ink(ctx, '#ffd166', 2.5); }
+      ctx.beginPath(); ctx.moveTo(39, hy - 2); ctx.lineTo(57, hy - 2); ctx.lineTo(54, hy + 12);
+      ctx.lineTo(42, hy + 12); ctx.closePath(); ink(ctx, steel, 4);                        // upper snout
+      toothRow(ctx, 42, 54, hy + 12, 4, false);
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(45, hy + 3, 1.3, 0, TAU); ctx.arc(51, hy + 3, 1.3, 0, TAU); ctx.fill();
+      ctx.fillStyle = hurt ? '#ffe066' : '#ff2a2a';                                         // visor eyes
+      ctx.fillRect(36, hy - 7, 8, 4); ctx.fillRect(52, hy - 7, 8, 4);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(37, hy - 7, 3, 1.5); ctx.fillRect(53, hy - 7, 3, 1.5);
+    }
+    ctx.beginPath(); ctx.moveTo(42, hy - 9); ctx.lineTo(48, hy - 20); ctx.lineTo(54, hy - 9);
+    ctx.closePath(); ink(ctx, rust, 3);                                                    // crest
+  }
+  if (hurt) sparks();
+  ctx.restore();
+}
+
+/* a gout of flame, drawn as a billboard; `step` swells it as it flies */
+function drawFire(ctx, step) {
+  const r = 22 + step * 8;
+  ctx.fillStyle = 'rgba(255,90,20,0.75)';
+  ctx.beginPath();
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * TAU, rr = r * (i % 2 ? 0.72 : 1) * (1 + 0.12 * Math.sin(i * 2.3 + step * 3));
+    const x = 48 + Math.cos(a) * rr, y = 50 + Math.sin(a) * rr;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath(); ctx.fill();
+  ell(ctx, 48, 50, r * 0.62, r * 0.58); ctx.fillStyle = '#ffa630'; ctx.fill();
+  ell(ctx, 48, 52, r * 0.34, r * 0.3); ctx.fillStyle = '#fff1a6'; ctx.fill();
+}
+
+/* a glowing mote sucked into the spinosaurus's jaws while it breathes in */
+function drawEmber(ctx) {
+  ell(ctx, 48, 48, 14, 14); ctx.fillStyle = 'rgba(255,140,40,0.55)'; ctx.fill();
+  ell(ctx, 48, 48, 7, 7); ctx.fillStyle = '#ffe9a0'; ctx.fill();
+}
+
+/* the muzzle blast of an arm cannon */
+function drawBoom(ctx, step) {
+  const n = 9, r0 = 18 + step * 12;
+  ctx.globalAlpha = 1 - step * 0.3;
+  ctx.beginPath();
+  for (let i = 0; i < n * 2; i++) {
+    const a = i / (n * 2) * TAU, r = i % 2 ? r0 * 0.55 : r0 + 10;
+    const x = 48 + Math.cos(a) * r, y = 48 + Math.sin(a) * r;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath(); ink(ctx, step > 1 ? '#8a8f99' : '#ffb347', 3);
+  ell(ctx, 48, 48, r0 * 0.5, r0 * 0.5); ctx.fillStyle = step > 1 ? '#c8ccd4' : '#fff1a6'; ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
 /* ------------------------------------------------------------- pickups  */
 function drawEgg(ctx) {
   ctx.beginPath();
@@ -1748,6 +1977,7 @@ function buildArt() {
   TEX.vinedoor = bake(texVineDoor()); TEX.bonegate = bake(texBoneGate());
   TEX.wood = bake(texWood()); TEX.water = bake(texWater());
   TEX.mud = bake(texMud()); TEX.crag = bake(texCrag());
+  TEX.iron = bake(texIron()); TEX.plate = bake(texPlate());
   TEX.grass = bake(texGrass()); TEX.ash = bake(texAsh()); TEX.tile = bake(texTile());
   TEX.canopy = bake(texCanopy()); TEX.cave = bake(texCave()); TEX.temple = bake(texTemple());
   TEX.sky = bake(texSky());
@@ -1775,6 +2005,13 @@ function buildArt() {
   bakeDinoViews('carnotaurus', 96, function (c, m, p, v) { drawCarno(c, m, p, v); });
   bakeDinoViews('borealosuchus', 96, function (c, m, p, v) { drawBoreal(c, m, p, v); });
   bakeDinoViews('king', 144, function (c, m, p, v) { drawKing(c, m, p, v); });
+  bakeDinoViews('spino', 144, function (c, m, p, v) { drawSpino(c, m, p, v); });
+  // the spinosaurus has two more poses: frame 4 is the breath-in tell, frame 5 the cannons up
+  ['spino', 'spino_side', 'spino_back'].forEach(function (key) {
+    const v = key === 'spino' ? 'front' : key.slice(6);
+    SPR[key].push(spriteFrom(144, function (c) { drawSpino(c, 'inhale', 0, v); }));
+    SPR[key].push(spriteFrom(144, function (c) { drawSpino(c, 'cannon', 0, v); }));
+  });
 
   SPR.egg = [spriteFrom(96, drawEgg, false)];
   SPR.meat = [spriteFrom(96, drawMeat, false)];
@@ -1792,6 +2029,16 @@ function buildArt() {
   SPR.torch = [
     spriteFrom(96, function (c) { drawTorch(c, 0); }, false),
     spriteFrom(96, function (c) { drawTorch(c, 0.5); }, false)
+  ];
+  SPR.fire = [
+    spriteFrom(96, function (c) { drawFire(c, 0); }, false),
+    spriteFrom(96, function (c) { drawFire(c, 1); }, false)
+  ];
+  SPR.ember = [spriteFrom(96, drawEmber, false)];
+  SPR.boom = [
+    spriteFrom(96, function (c) { drawBoom(c, 0); }, false),
+    spriteFrom(96, function (c) { drawBoom(c, 1); }, false),
+    spriteFrom(96, function (c) { drawBoom(c, 2); }, false)
   ];
   SPR.poof = [
     spriteFrom(96, function (c) { drawPoof(c, 0); }, false),
@@ -1931,13 +2178,39 @@ const LEVELS=[
 "GGGGGGGGGGGPmGGGGGGGGGGG",
 "GGGGGGGGGGGGGGGGGGGGGGGG"
 ]},
+{name:'The Iron Forge',ceilH:3.40,sub:'Something mechanical is breathing in the dark',floor:'plate',ceil:'cave',boss:true,grid:[
+"IIIIIIIIIIIIIIIIIIIIIIII",
+"IIIIIIIIIIIIIIIIIIIIIIII",
+"III$m.......E.......m$II",
+"III.................s.II",
+"III....L...........L..II",
+"III.........S.........II",
+"III..I.............I..II",
+"III...................II",
+"III.s..L....L.....L...II",
+"III...................II",
+"III..I....L...L....I..II",
+"III...................II",
+"IIIIIIIIIII==IIIIIIIIIII",
+"III$..r..I....I..r..$III",
+"III......I....I......III",
+"III..t...=....=..m...III",
+"III......I....I......III",
+"IIIIII=III....III=IIIIII",
+"III$.m...I.r..I......III",
+"III......I....I..s..$III",
+"III.r....I....I...r..III",
+"IIIIIIIIIIII.PIIIIIIIIII",
+"IIIIIIIIIIIIIIIIIIIIIIII",
+"IIIIIIIIIIIIIIIIIIIIIIII"
+]},
 ];
 // Pristine factory copy of all levels for editor reset
 const FACTORY_LEVELS = JSON.parse(JSON.stringify(LEVELS));
 
 /* Textures the engine really has. Anything else (a typo in an import, a hand-edited save) is
    replaced by the floor's own value instead of crashing the renderer. */
-const FLOOR_TEXS = ['grass', 'water', 'ash', 'tile', 'wood', 'mud'];
+const FLOOR_TEXS = ['grass', 'water', 'ash', 'tile', 'wood', 'mud', 'plate'];
 const CEIL_TEXS = ['canopy', 'cave', 'temple', 'sky'];
 
 function padGrid(grid) {
@@ -2016,7 +2289,7 @@ function initRender() {
   imgData = sctx.createImageData(RW, RH);
   buf = new Uint32Array(imgData.data.buffer);
   zbuf = new Float32Array(RW);
-  WALLTEX = [null, TEX.stone, TEX.vine, TEX.brick, TEX.lava, TEX.gold, TEX.door, TEX.keydoor, TEX.wood, TEX.crag, TEX.mud];
+  WALLTEX = [null, TEX.stone, TEX.vine, TEX.brick, TEX.lava, TEX.gold, TEX.door, TEX.keydoor, TEX.wood, TEX.crag, TEX.mud, TEX.iron];
 }
 
 /* --------------------------------------------------------------- levels */
@@ -2026,11 +2299,13 @@ const DINOS = {
   ptero: { spr: 'ptero', hp: 42, speed: 2.75, dmg: 7, reach: 1.3, sight: 17, scale: 0.85, vOff: -0.42, pts: 150, name: 'Pterosaur', wind: 0.34, rest: 0.5, voice: 2 },
   carnotaurus: { spr: 'carnotaurus', hp: 380, speed: 2.3, dmg: 22, reach: 1.6, sight: 18, scale: 1.35, vOff: 0, pts: 1200, name: 'Carnotaurus', wind: 0.42, rest: 0.6, voice: 0 },
   borealosuchus: { spr: 'borealosuchus', hp: 180, speed: 1.05, dmg: 18, reach: 1.35, sight: 11, scale: 1.05, vOff: 0.22, pts: 450, name: 'Borealosuchus', wind: 0.35, rest: 0.8, voice: 1 },
-  king: { spr: 'king', hp: 620, speed: 1.55, dmg: 17, reach: 1.9, sight: 22, scale: 2.3, vOff: 0, pts: 2500, name: 'The Bone King', wind: 0.55, rest: 0.75, voice: 3 }
+  king: { spr: 'king', hp: 620, speed: 1.55, dmg: 17, reach: 1.9, sight: 22, scale: 2.3, vOff: 0, pts: 2500, name: 'The Bone King', wind: 0.55, rest: 0.75, voice: 3 },
+  // reach is its cannon range; it has no ordinary bite (see the spinosaurus block in updateDino)
+  spino: { spr: 'spino', hp: 680, speed: 1.2, dmg: 24, reach: 3.3, sight: 20, scale: 2.0, vOff: 0, pts: 5000, name: 'The Robo-Spinosaurus', wind: 0.6, rest: 0.8, voice: 3 }
 };
 
 const DOT = {   // minimap dot colours, matching each dino's sprite
-  raptor: '#ffb52e', trike: '#7fa6d6', ptero: '#b98cf0', carnotaurus: '#ff5040', borealosuchus: '#8fbf6a', king: '#ff5040'
+  raptor: '#ffb52e', trike: '#7fa6d6', ptero: '#b98cf0', carnotaurus: '#ff5040', borealosuchus: '#8fbf6a', king: '#ff5040', spino: '#ff8a1f'
 };
 
 const ITEMS = {
@@ -2079,6 +2354,7 @@ function buildLevel(idx) {
       else if (ch === 'W') t = 8;
       else if (ch === 'R') t = 9;
       else if (ch === 'M') t = 10;
+      else if (ch === 'I') t = 11;
       w.tiles[i] = t;
       if (t !== 0) continue;
       const cx = x + 0.5, cy = y + 0.5;
@@ -2090,6 +2366,7 @@ function buildLevel(idx) {
       else if (ch === 'b') spawnDino(w, 'borealosuchus', cx, cy);
       else if (ch === 'C') { spawnDino(w, 'carnotaurus', cx, cy, true); w.bossAlive = true; }
       else if (ch === 'X') { spawnDino(w, 'king', cx, cy, true); w.bossAlive = true; }
+      else if (ch === 'S') { spawnDino(w, 'spino', cx, cy, true); w.bossAlive = true; }
       else if (ch === '$') { spawnItem(w, 'egg', cx, cy); w.eggsTotal++; }
       else if (ch === 'm') spawnItem(w, 'meat', cx, cy);
       else if (ch === 'k') spawnItem(w, 'key', cx, cy);
@@ -2459,7 +2736,7 @@ function renderWorld(cam) {
     // a hit flash wins; otherwise a dino winding up pulses red until the blow lands
     const pix = (t.flash > 0 && frame.flash) ? frame.flash
       : (t.tell > 0 && frame.tell && Math.sin(W.time * 34) > -0.35) ? frame.tell
-        : frame.shades[shadeIdx(tY)];
+        : frame.shades[t.bright ? SHADES - 1 : shadeIdx(tY)];
     const tstep = sw / size;
     let ty0 = 0;
     if (y0 < 0) { ty0 = -y0 * tstep; y0 = 0; }
@@ -2664,6 +2941,45 @@ const SFX = {
     tone(200, 50, 0.7, 'square', 0.14);
     noiseHit(0.6, 0.26, 600, 0, 'lowpass');
   },
+  // The spinosaurus drawing breath: a long rising whoosh, the tell for its fire.
+  inhale: function (dur) {
+    tone(90, 520, dur, 'sawtooth', 0.06);
+    tone(45, 180, dur, 'sine', 0.16);
+    for (let i = 0; i < 6; i++) noiseHit(0.3, 0.05 + i * 0.03, 500 + i * 450, i * dur / 6, 'bandpass');
+  },
+  // Its roar: the T. rex sample slowed down, over two detuned oscillators for a metal throat.
+  spinoRoar: function () {
+    initRoarAudio();
+    if (roarAudio && SET.sfx) {
+      try {
+        const a = roarAudio.cloneNode();
+        a.volume = 0.8; a.preservesPitch = false; a.playbackRate = 0.72;
+        const p = a.play();
+        if (p && p.catch) p.catch(function () {});
+      } catch (e) {}
+    }
+    tone(110, 38, 0.9, 'square', 0.14);
+    tone(113, 40, 0.9, 'sawtooth', 0.12);
+    tone(880, 440, 0.5, 'square', 0.04, 0.05);
+    noiseHit(0.7, 0.2, 500, 0, 'lowpass');
+  },
+  flame: function (dur) {
+    noiseHit(dur, 0.32, 1200, 0, 'lowpass');
+    noiseHit(dur * 0.9, 0.14, 3000, 0.05, 'bandpass');
+    tone(70, 45, dur, 'sawtooth', 0.08);
+  },
+  // Arm cannons spinning up: a rising whine, then both barrels go off a beat apart.
+  charge: function () {
+    tone(220, 1400, 0.6, 'square', 0.06);
+    tone(223, 1410, 0.6, 'triangle', 0.08);
+  },
+  cannon: function () {
+    [0, 0.07].forEach(function (d) {
+      noiseHit(0.55, 0.5, 700, d, 'lowpass');
+      tone(130, 30, 0.45, 'sine', 0.42, d);
+      noiseHit(0.12, 0.28, 3000, d, 'highpass');
+    });
+  },
   growl: function (v) { const b = [190, 150, 320, 120][v || 0]; tone(b, b * 0.6, 0.28, 'sawtooth', 0.16); },
   bonk: function () { tone(180, 90, 0.12, 'square', 0.2); noiseHit(0.1, 0.2, 500); },
   lose: function () { tone(400, 400, 0.18, 'triangle', 0.2); tone(330, 330, 0.18, 'triangle', 0.2, 0.18); tone(240, 160, 0.5, 'triangle', 0.2, 0.36); },
@@ -2675,7 +2991,7 @@ const SFX = {
    counter-melody stacked on it. The arrangement thickens while dinos are
    actually hunting you (`musicHeat`), so an empty floor sounds empty and a
    pack closing in sounds like one. Everything goes to `musicBus`. */
-const MUSIC_ROOTS = [55, 49, 43.65, 58.27, 51.91];                  // one per floor
+const MUSIC_ROOTS = [55, 49, 43.65, 58.27, 51.91, 41.2];            // one per floor
 const PROG = [[0, 7, 15], [-2, 5, 12], [3, 10, 15], [-4, 3, 14]];   // bar chords, semitones off the root
 const BASSLINE = [0, 0, 7, 0, 5, 0, 7, 3, 0, 0, 10, 0, 5, 7, 3, 0];
 const LEAD_A = [12, -1, 15, 12, 19, -1, 17, 15, 12, -1, 10, 12, 15, -1, 19, -1];
@@ -2978,7 +3294,7 @@ function hideOverlay() {
 function titleScreen() {
   mode = 'title';
   const best = SET.best ? '<p class="best">Best score so far: ' + SET.best + '</p>' : '';
-  overlay('Rex Rumble', 'Five floors of trouble. One very short pair of arms.',
+  overlay('Rex Rumble', 'Six floors of trouble. One very short pair of arms.',
     '<div class="how">' +
     '<p><b>Move</b> W A S D or the arrow keys. <b>Look</b> move the mouse.</p>' +
     '<p><b>Claw</b> left click or F — fast and wide, and it knocks a dino off a strike it has started.</p>' +
@@ -3064,7 +3380,7 @@ function levelClear() {
   totalScore += bonus;
   const last = curLevel >= LEVELS.length - 1;
   overlay(last ? 'You made it out!' : 'Floor cleared',
-    last ? 'The Bone King has left the building.' : 'Stairs down. Keep going.',
+    last ? 'The Robo-Spinosaurus is scrap metal.' : 'Stairs down. Keep going.',
     '<div class="tally">' +
     row('Golden eggs', W.eggs + ' / ' + W.eggsTotal) +
     row('Dinos scared off', W.scared + ' / ' + W.dinosTotal) +
@@ -3171,7 +3487,8 @@ function hurtDino(t, dmg, kind, punish) {
   if (kind === 'claw' && t.hp > 0 && !(t.intCd > 0) && t.state !== 'stun' && dinoTelegraphing(t)) {
     t.intCd = 1.8;
     t.tell = 0; t.hitDone = true;
-    t.pawing = 0; t.crouch = 0; t.coil = 0; t.rearing = 0;
+    t.pawing = 0; t.crouch = 0; t.coil = 0; t.rearing = 0; t.inhale = 0; t.aim = 0;
+    if (t.type === 'spino') t.fireCd = Math.max(t.fireCd || 0, 1.5);   // no instant second breath
     if (t.type === 'ptero') { t.swoop = 0; t.vOff = t.def.vOff; }   // knocked out of its dive
     t.state = 'rest'; t.t = -0.2;
     SFX.parry();
@@ -3191,11 +3508,12 @@ function scareOff(t) {
   W.scared++;
   totalScore += t.def.pts;
   SFX.scare();
-  say(t.def.name + ' ran off!');
+  say(t.type === 'spino' ? 'The Robo-Spinosaurus sputters and shuts down!' : t.def.name + ' ran off!');
   P.roarMeter = 0;
   if (t.type === 'king' || t.isBoss) {
     W.bossAlive = false;
-    say(t.type === 'king' ? 'The Bone King is gone! Head for the footprint.' : 'The Carnotaurus fell! Head for the footprint.', true);
+    say(t.type === 'king' ? 'The Bone King is gone! Head for the footprint.' :
+      t.type === 'spino' ? 'The forge falls quiet. Head for the footprint.' : 'The Carnotaurus fell! Head for the footprint.', true);
   }
   if (Math.random() < 0.34) spawnItem(W, 'meat', t.x, t.y);
 }
@@ -3236,7 +3554,11 @@ function wake(t) {
   if (t.state !== 'sleep') return;
   t.state = 'chase'; t.t = 0;
   if (t.type === 'borealosuchus') t.vOff = 0.22;
-  SFX.growl(t.def.voice);
+  if (t.type === 'spino') {
+    t.fireCd = 1.2;
+    SFX.spinoRoar(); shake = Math.max(shake, 8);
+    say('The Robo-Spinosaurus powers up!', true);
+  } else SFX.growl(t.def.voice);
   const screeching = t.type === 'raptor';
   for (let i = 0; i < W.things.length; i++) {
     const o = W.things[i];
@@ -3262,13 +3584,14 @@ function telegraph(t, dur) {
 /* Mid-tell: the window where a claw is fast enough to knock the strike off its rails. */
 function dinoTelegraphing(t) {
   return t.state === 'wind' || t.pawing > 0 || t.crouch > 0 || t.coil > 0 || t.rearing > 0 ||
-    (t.type === 'ptero' && t.swoop > 0.65);
+    t.inhale > 0 || t.aim > 0 || (t.type === 'ptero' && t.swoop > 0.65);
 }
 
 /* Committed to a move it can no longer steer out of — what the bite is paid to punish. */
 function dinoCommitted(t) {
   return dinoTelegraphing(t) || t.state === 'stun' ||
-    t.charging > 0 || t.trikeCharging > 0 || t.lunging > 0 || t.leap > 0 || t.swoop > 0;
+    t.charging > 0 || t.trikeCharging > 0 || t.lunging > 0 || t.leap > 0 || t.swoop > 0 ||
+    t.roarT > 0 || t.breath > 0;
 }
 
 function updateDino(t, dt) {
@@ -3289,6 +3612,7 @@ function updateDino(t, dt) {
   if (t.state === 'stun') {
     t.swoop = 0; t.tell = 0;
     t.crouch = 0; t.leap = 0; t.backoff = 0; t.coil = 0; t.rearing = 0;
+    t.inhale = 0; t.roarT = 0; t.breath = 0; t.aim = 0;
     t.stun -= dt; t.frame = 3;
     if (t.stun <= 0) { t.state = 'chase'; t.t = 0; }
     return;
@@ -3307,7 +3631,7 @@ function updateDino(t, dt) {
     while (diff <= -Math.PI) diff += TAU;
     while (diff > Math.PI) diff -= TAU;
     // Vision cone: sleeping dinos only see player within front 135 deg cone
-    const inSightCone = Math.abs(diff) < Math.PI * 0.38;
+    const inSightCone = Math.abs(diff) < Math.PI * 0.38 || (t.type === 'spino' && dist < 10);
     // close by they notice you from any angle, but never through a wall
     if (dist < sight && (inSightCone || dist < 2.0) && losClear(t.x, t.y, P.x, P.y)) wake(t);
     return;
@@ -3322,7 +3646,8 @@ function updateDino(t, dt) {
                     t.type === 'carnotaurus' ? 2.3 :
                     t.type === 'trike' ? 1.9 :
                     t.type === 'borealosuchus' ? 2.4 :
-                    t.type === 'king' ? 2.1 : 3.2) * (t.isBoss ? 0.9 : 1.0);
+                    t.type === 'king' ? 2.1 :
+                    t.type === 'spino' ? 1.7 : 3.2) * (t.isBoss ? 0.9 : 1.0);
 
   if (t.state === 'wind') {
     t.t += dt; t.frame = 2;
@@ -3390,6 +3715,61 @@ function updateDino(t, dt) {
       } else if (t.charging <= 0) {
         t.state = 'rest'; t.t = -0.4;
       }
+      return;
+    }
+  }
+
+  /* Robo-Spinosaurus, the final boss. Both of its attacks come with a tell you can read.
+     At range it BREATHES IN: the furnace in its chest and the vents in its sail blaze, embers
+     stream into its jaws and a rising whoosh plays for over a second. Then it roars and hoses
+     fire down a line that sweeps after you, slower than you can walk sideways, and pillars
+     stop the flames. Up close it raises both arm cannons with a charging whine, then blasts
+     everything in front of it and throws you back. Clawing it during either wind-up knocks it
+     off; biting it while it roars or breathes fire does double damage. Below half health it
+     overheats: shorter cooldowns and a faster sweep. */
+  if (t.type === 'spino') {
+    const hot = t.hp < t.maxhp * 0.5;
+    if (hot && !t.overheat) { t.overheat = true; SFX.spinoRoar(); say('The Robo-Spinosaurus is overheating!', true); }
+    if (t.fireCd > 0) t.fireCd -= dt;
+    if (t.gunCd > 0) t.gunCd -= dt;
+    if (t.inhale > 0) {
+      // no red pulse here: the blazing furnace and the embers are this tell, so it can't be
+      // mistaken for the cannons' wind-up (which does flash red)
+      t.inhale -= dt; t.frame = 4; t.tell = 0;
+      t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * dt);
+      t.emberT = (t.emberT || 0) - dt;
+      if (t.emberT <= 0) { t.emberT = 0.04; spawnEmber(t); }
+      if (t.inhale <= 0) { t.roarT = 0.4; SFX.spinoRoar(); shake = Math.max(shake, 6); }
+      return;
+    }
+    if (t.roarT > 0) {
+      t.roarT -= dt; t.frame = 2;
+      if (t.roarT <= 0) { t.breath = hot ? 1.4 : 1.15; t.fireT = 0; SFX.flame(t.breath); }
+      return;
+    }
+    if (t.breath > 0) {
+      t.breath -= dt; t.frame = 2;
+      t.angle += Math.sign(da) * Math.min(Math.abs(da), (hot ? 0.6 : 0.42) * dt);
+      t.fireT -= dt;
+      while (t.fireT <= 0) { t.fireT += 0.05; spawnFlame(t); }
+      if (t.breath <= 0) { t.state = 'rest'; t.t = 0; t.fireCd = (hot ? 1.8 : 2.8) + Math.random(); }
+      return;
+    }
+    if (t.aim > 0) {
+      t.aim -= dt; t.frame = 5; t.tell = 0.2;
+      t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * 0.8 * dt);
+      if (t.aim <= 0) fireCannons(t);
+      return;
+    }
+    const seen = losClear(t.x, t.y, P.x, P.y);
+    if (!(t.gunCd > 0) && dist < d.reach && seen) {
+      t.aim = hot ? 0.5 : 0.62; SFX.charge();
+      tip('cannon', 'Cannons charging — back off or claw it!');
+      return;
+    }
+    if (!(t.fireCd > 0) && dist > d.reach + 0.3 && dist < 13 && seen && Math.abs(da) < 0.6 && Math.random() < dt * 1.5) {
+      t.inhale = 1.15; t.emberT = 0; SFX.inhale(1.15);
+      tip('inhale', 'It\'s breathing in — get behind a pillar or out of the line!');
       return;
     }
   }
@@ -3548,7 +3928,7 @@ function updateDino(t, dt) {
     }
   }
 
-  if (dist <= d.reach && losClear(t.x, t.y, P.x, P.y)) {
+  if (t.type !== 'spino' && dist <= d.reach && losClear(t.x, t.y, P.x, P.y)) {
     t.state = 'wind'; t.t = 0; t.hitDone = false;
     t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * dt);
     return;
@@ -3608,6 +3988,80 @@ function separate() {
       moveCircle(b, dx / d * push, dy / d * push, 0.28);
     }
   }
+}
+
+/* ---- the spinosaurus's flames, embers and cannon blasts ----
+   These are billboards like everything else, placed at a height `h` above the floor.
+   A sprite of scale s is centred s/2 up when vOff is 0, so vOff = s/2 - h lifts it to h. */
+const SPINO_JAW = 1.8;       // how high its jaws are, in wall heights
+
+function spinoMouth(t) {
+  return { x: t.x + Math.cos(t.angle) * 0.9, y: t.y + Math.sin(t.angle) * 0.9 };
+}
+
+function spawnFx(spr, x, y, h, scale, dur, to) {
+  W.things.push({
+    kind: 'fx', spr: spr, frame: 0, x: x, y: y, h: h, scale: scale, vOff: scale / 2 - h,
+    life: 0, dur: dur, from: to ? { x: x, y: y, h: h } : null, to: to || null, alive: true, bright: true
+  });
+}
+
+// a mote drawn in from all around the jaws while it breathes in
+function spawnEmber(t) {
+  const m = spinoMouth(t), a = Math.random() * TAU, r = 1.4 + Math.random() * 0.9;
+  const x = m.x + Math.cos(a) * r, y = m.y + Math.sin(a) * r;
+  if (solidAt(x, y)) return;
+  spawnFx('ember', x, y, SPINO_JAW + (Math.random() - 0.5) * 1.4, 0.22, 0.42, { x: m.x, y: m.y, h: SPINO_JAW });
+}
+
+// one gout of the breath: flies along the jaw line (plus a little spread) and falls to your head height
+function spawnFlame(t) {
+  const m = spinoMouth(t);
+  if (solidAt(m.x, m.y)) return;
+  const a = t.angle + (Math.random() - 0.5) * 0.12, spd = 7.5;
+  const reach = Math.max(1.5, Math.hypot(P.x - m.x, P.y - m.y));
+  W.things.push({
+    kind: 'fire', spr: 'fire', frame: 0, x: m.x, y: m.y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+    h: SPINO_JAW, vh: (0.5 - SPINO_JAW) / (reach / spd), life: 0, scale: 0.55, vOff: 0, alive: true, bright: true
+  });
+}
+
+function fireCannons(t) {
+  SFX.cannon(); shake = Math.max(shake, 12);
+  const fx = Math.cos(t.angle), fy = Math.sin(t.angle);
+  for (let s = -1; s <= 1; s += 2) {
+    const bx = t.x + fx * 1.0 - fy * 0.75 * s, by = t.y + fy * 1.0 + fx * 0.75 * s;
+    if (!solidAt(bx, by)) spawnFx('boom', bx, by, 1.2, 1.1, 0.36);
+  }
+  const dx = P.x - t.x, dy = P.y - t.y, d = Math.hypot(dx, dy) || 1;
+  if (d < t.def.reach + 0.6 && (dx * fx + dy * fy) / d > 0.4 && losClear(t.x, t.y, P.x, P.y)) {
+    hurtPlayer(t.def.dmg);
+    for (let i = 0; i < 3; i++) moveCircle(P, dx / d * 0.3, dy / d * 0.3, 0.26);   // blown back, in steps so no wall is skipped
+  }
+  t.state = 'rest'; t.t = 0; t.gunCd = t.hp < t.maxhp * 0.5 ? 1.2 : 1.7;
+}
+
+function updateEffect(t, dt) {
+  t.life += dt;
+  if (t.kind === 'fire') {
+    t.x += t.vx * dt; t.y += t.vy * dt;
+    t.h = Math.max(0.35, t.h + t.vh * dt);
+    t.scale = 0.55 + Math.min(0.5, t.life * 0.7);
+    t.vOff = t.scale / 2 - t.h;
+    t.frame = ((t.life * 12) | 0) % 2;
+    if (t.life > 1.8 || solidAt(t.x, t.y) || thingCollides(null, t.x, t.y, 0.08)) { t.alive = false; return; }
+    if (t.h < 1.2 && Math.hypot(t.x - P.x, t.y - P.y) < 0.45 + t.scale * 0.2) {
+      t.alive = false;
+      hurtPlayer(10);
+    }
+    return;
+  }
+  const u = t.life / t.dur;
+  if (u >= 1) { t.alive = false; return; }
+  if (t.to) {
+    t.x = lerp(t.from.x, t.to.x, u); t.y = lerp(t.from.y, t.to.y, u); t.h = lerp(t.from.h, t.to.h, u);
+    t.vOff = t.scale / 2 - t.h;
+  } else t.frame = Math.min(2, (u * 3) | 0);
 }
 
 /* ------------------------------------------------------------- updating */
@@ -3686,6 +4140,7 @@ function update(dt) {
     const t = arr[i];
     if (!t.alive) continue;
     if (t.kind === 'dino') { updateDino(t, dt); continue; }
+    if (t.kind === 'fire' || t.kind === 'fx') { updateEffect(t, dt); continue; }
     if (t.kind === 'item') {
       t.bob += dt * 3;
       t.vOff = ITEMS[t.type].vOff + Math.sin(t.bob) * 0.04;
@@ -3696,7 +4151,12 @@ function update(dt) {
       t.frame = (W.time * 4 | 0) % 2;
       if (Math.hypot(t.x - P.x, t.y - P.y) < 0.7) {
         if (W.boss && W.bossAlive) {
-          if (!t.nag || W.time - t.nag > 3) { t.nag = W.time; say(curLevel === LEVELS.length - 1 ? 'The Bone King is still stomping about!' : 'Defeat the floor boss to unlock the exit!'); }
+          if (!t.nag || W.time - t.nag > 3) {
+            t.nag = W.time;
+            const b = W.things.find(function (o) { return o.kind === 'dino' && o.isBoss && o.alive && o.state !== 'poof'; });
+            say(b && b.type === 'king' ? 'The Bone King is still stomping about!' :
+              b && b.type === 'spino' ? 'The Robo-Spinosaurus is still clanking about!' : 'Defeat the floor boss to unlock the exit!');
+          }
         } else levelClear();
       }
       continue;
@@ -3726,6 +4186,12 @@ function update(dt) {
   for (let i = msgs.length - 1; i >= 0; i--) {
     msgs[i].t += dt;
     if (msgs[i].t > msgs[i].life) msgs.splice(i, 1);
+  }
+
+  // flames and sparks that have burnt out are dropped for good, so a long fight doesn't grow the list
+  if (!(W.pruneAt > W.time)) {
+    W.pruneAt = W.time + 1;
+    W.things = W.things.filter(function (t) { return t.alive || (t.kind !== 'fire' && t.kind !== 'fx'); });
   }
 }
 
@@ -3947,6 +4413,17 @@ function drawHUD() {
   c.textAlign = 'center';
   c.fillStyle = 'rgba(255,255,255,0.6)';
   c.fillText(W.def.name, 240, 16);
+
+  // a boss's health, once it has noticed you
+  const boss = W.things.find(function (t) { return t.kind === 'dino' && t.isBoss && t.alive && t.state !== 'sleep' && t.state !== 'poof'; });
+  if (boss) {
+    const bw = 170, bx = 240 - bw / 2, by = 27, f = clamp(boss.hp / boss.maxhp, 0, 1);
+    c.fillStyle = 'rgba(10,22,17,0.72)'; c.fillRect(bx - 2, by - 2, bw + 4, 10);
+    c.fillStyle = boss.overheat ? '#ff8a1f' : '#ff5d6c'; c.fillRect(bx, by, bw * f, 6);
+    c.font = '500 10px Fredoka, system-ui, sans-serif';
+    c.fillStyle = 'rgba(255,255,255,0.8)';
+    c.fillText(boss.def.name, 240, by + 17);
+  }
   c.textAlign = 'left';
 
   drawMinimap(c);
@@ -4054,7 +4531,8 @@ const ED_PALETTE = {
     { ch: 'G', label: 'Gold', desc: 'Royal golden wall', color: '#a9791f', pattern: 'shimmer', accent: '#f4d873' },
     { ch: 'W', label: 'Wood', desc: 'Bark and timber wall', color: '#5c3d22', pattern: 'grain', accent: '#33210f' },
     { ch: 'R', label: 'Crag', desc: 'Volcanic crag wall', color: '#4a4046', pattern: 'speckle', accent: '#8a7d74' },
-    { ch: 'M', label: 'Mud', desc: 'Swamp mud wall', color: '#5f563a', pattern: 'speckle', accent: '#1c1a0e' }
+    { ch: 'M', label: 'Mud', desc: 'Swamp mud wall', color: '#5f563a', pattern: 'speckle', accent: '#1c1a0e' },
+    { ch: 'I', label: 'Iron', desc: 'Riveted forge plating', color: '#34466a', pattern: 'bricks', accent: '#ff7a1a' }
   ],
   doors: [
     { ch: '=', label: 'Door / Vine', desc: 'Doorway or nature vine curtain', color: '#2f9db5', pattern: 'solid' },
@@ -4071,7 +4549,8 @@ const ED_PALETTE = {
     { ch: 'c', label: 'Carno', desc: 'Fast horned stalker', color: '#cc3333', pattern: 'solid' },
     { ch: 'b', label: 'Boreal', desc: 'Lurking swamp beast', color: '#3f8d7a', pattern: 'solid' },
     { ch: 'C', label: 'Carno Boss', desc: 'Sub-boss Carnotaurus', color: '#960d3c', pattern: 'solid' },
-    { ch: 'X', label: 'T-Rex Boss', desc: 'The King of Dinosaurs', color: '#ff4400', pattern: 'solid' }
+    { ch: 'X', label: 'T-Rex Boss', desc: 'The King of Dinosaurs', color: '#ff4400', pattern: 'solid' },
+    { ch: 'S', label: 'Robo-Spino', desc: 'Final boss: fire breath and arm cannons', color: '#c9ced8', pattern: 'solid' }
   ],
   items: [
     { ch: 'P', label: 'Player', desc: 'Player spawn point (unique)', color: '#b8dc30', pattern: 'solid' },
@@ -4412,6 +4891,7 @@ function getEditorValidation(grid) {
       else if (ch === 'W') t = 8;
       else if (ch === 'R') t = 9;
       else if (ch === 'M') t = 10;
+      else if (ch === 'I') t = 11;
       tiles[i] = t;
 
       if (ch === 'P') playerCount++;
@@ -4419,7 +4899,7 @@ function getEditorValidation(grid) {
       else if (ch === '$') eggCount++;
       else if (ch === 'k') keyCount++;
       else if (ch === 'T') treeCount++;
-      else if ('rtpcbCX'.includes(ch)) dinoCount++;
+      else if ('rtpcbCXS'.includes(ch)) dinoCount++;
     }
   }
 

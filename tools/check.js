@@ -69,7 +69,7 @@ console.log('\nsyntax');
   /* ---------------------------------------------------------------- 3. levels */
   console.log('\nlevels (the editor\'s own audit)');
   const count = ev('LEVELS.length');
-  check('all five floors are present', count === 5, count + ' floors');
+  check('all six floors are present', count === 6, count + ' floors');
   for (let i = 0; i < count; i++) {
     const name = ev('LEVELS[' + i + '].name');
     /* The editor's audit reads row[x] straight, so a row that is short just yields

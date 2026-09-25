@@ -26,12 +26,17 @@ A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfe
   * 🐊 **Borealosuchus**: Prehistoric crocodilian lurkers of the murky bayou. They coil before they snap forward.
   * 👹 **Carnotaurus (Sub-Boss)**: Fast, horned carnivore that rears up and keeps aiming before it commits to a charge line.
   * 👑 **The Bone King (Boss)**: Colossal apex predator guarding the prehistoric Bone Throne.
-* **5 Distinct Prehistoric Biomes**:
+  * 🤖 **The Robo-Spinosaurus (Final Boss)**: A steel spinosaurus with a furnace in its chest and cannons for arms.
+    * **Fire breath** at range. First it *breathes in*: its belly, cheeks and sail vents blaze orange, embers stream into its jaws, and a rising whoosh plays for over a second. Then it roars and hoses fire down a line that sweeps after you, slower than you can walk sideways. The arena's pillars stop the flames.
+    * **Arm cannons** up close. Both arms come up with a charging whine while it flashes red, then it blasts everything in front of it and throws you back.
+    * Claw it during either wind-up to knock it off; bite it while it roars or breathes fire for double damage. Below half health it overheats: shorter cooldowns and a faster sweep. A boss health bar shows once it notices you.
+* **6 Distinct Prehistoric Biomes**:
   1. **Floor 0: Verdant Canopy** — Open primeval forest under a wide blue sky, with multi-layered depth trees, 100% organic tree-walls, and zero artificial doors.
   2. **Floor 1: Fernback Ruins** — Ancient stone pillars overgrown by primeval pines with hanging vine curtains.
   3. **Floor 2: Murky Bayou** — Deep cypress swamp with water ripples and a prehistoric bone gate locked by an amber fossil key.
   4. **Floor 3: Bubbling Basalt** — Volcanic obsidian caverns, ash floors, and the Carnotaurus sub-boss lair.
-  5. **Floor 4: The Bone Throne** — Golden temple arena and the final showdown against The Bone King.
+  5. **Floor 4: The Bone Throne** — Golden temple arena and the showdown against The Bone King.
+  6. **Floor 5: The Iron Forge** — Riveted iron walls, steel floors and lava pillars for cover. The final fight against the Robo-Spinosaurus.
 * **Read-the-tell Combat**: Every dino pulses **red** while it winds up, so a strike can be seen coming and stepped away from.
   * **Claw** is fast and wide, hits three at once, and lands early enough to knock a dino clean off a strike it has already started.
   * **Bite** is slow and roots you where you stand — but it does **double damage** to a dino already committed to its own move. Reading the flash and biting into it beats swinging on reflex; per second, spamming the big attack is the worse habit.
@@ -89,7 +94,7 @@ node tools/check.js
 ```
 
 It parses every inline script, boots the game headlessly (`tools/harness.js` stubs the DOM,
-the 2D canvas and Web Audio), runs **the in-game editor's own audit** over all five shipped
+the 2D canvas and Web Audio), runs **the in-game editor's own audit** over all six shipped
 floors, and plays 900 frames on each one with every dino awake — watching for exceptions,
 NaNs, and anything clipping out of the grid.
 
