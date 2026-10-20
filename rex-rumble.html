@@ -305,8 +305,9 @@ body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
 /* ===================================================================
    ART — every pixel in this game is drawn here at load time.
    Nothing is downloaded. Textures are 64x64, sprites 96x96 (boss 144).
-   Each one is baked into 8 pre-shaded copies so the renderer can just
-   copy pixels instead of doing per-pixel lighting maths.
+   Wall, floor and ceiling textures are baked into 8 pre-shaded copies so
+   the renderer can just copy pixels. Sprites are far bigger, so they keep
+   one copy and are shaded through small lookup tables as they are drawn.
    =================================================================== */
 
 const TAU = Math.PI * 2;
@@ -332,8 +333,8 @@ function newCv(w, h) {
   return c;
 }
 
-/* Turn a canvas into shaded uint32 pixel banks. */
-function bake(cv, wantFlash) {
+/* Turn a canvas into shaded uint32 pixel banks (textures). */
+function bake(cv) {
   const w = cv.width, h = cv.height;
   const d = cv.getContext('2d').getImageData(0, 0, w, h);
   const src = new Uint32Array(d.data.buffer.slice(0));
@@ -349,25 +350,41 @@ function bake(cv, wantFlash) {
     }
     shades.push(out);
   }
-  const tex = { w: w, h: h, shades: shades };
-  if (wantFlash) {
-    const fl = new Uint32Array(w * h);
-    const tl = new Uint32Array(w * h);
-    for (let i = 0; i < w * h; i++) {
-      const c = src[i], a = c >>> 24;
-      if (a < 24) { fl[i] = 0; tl[i] = 0; continue; }
-      const r = 200 + (c & 255) * 0.22 | 0, g = 200 + (c >> 8 & 255) * 0.22 | 0,
-        b = 190 + (c >> 16 & 255) * 0.22 | 0;
-      fl[i] = (255 << 24) | (clamp(b, 0, 255) << 16) | (clamp(g, 0, 255) << 8) | clamp(r, 0, 255);
-      // the wind-up tint: hot red, so a strike you still have time to dodge reads at a glance
-      const tr = 190 + (c & 255) * 0.26 | 0, tg = 36 + (c >> 8 & 255) * 0.26 | 0,
-        tb = 26 + (c >> 16 & 255) * 0.24 | 0;
-      tl[i] = (255 << 24) | (clamp(tb, 0, 255) << 16) | (clamp(tg, 0, 255) << 8) | clamp(tr, 0, 255);
-    }
-    tex.flash = fl;
-    tex.tell = tl;
+  return { w: w, h: h, shades: shades };
+}
+
+/* Sprites keep ONE copy of their pixels (opaque, unshaded; 0 = see-through) and are shaded or tinted
+   while they are drawn, through a lookup table per channel. Eight shaded copies plus a hit-flash and a
+   wind-up copy of every frame took ~54 MB; this takes ~5 MB, and the tables reproduce the old copies
+   exactly. A tint is [red LUT, green LUT, blue LUT]. */
+function makeTint(fr, fg, fb) {
+  const t = [new Uint8Array(256), new Uint8Array(256), new Uint8Array(256)];
+  for (let v = 0; v < 256; v++) { t[0][v] = clamp(fr(v), 0, 255); t[1][v] = clamp(fg(v), 0, 255); t[2][v] = clamp(fb(v), 0, 255); }
+  return t;
+}
+const SPR_SHADE = [];
+for (let s = 0; s < SHADES; s++) {
+  const f = 0.30 + 0.70 * (s / (SHADES - 1));
+  const lit = function (v) { return v * f | 0; };
+  SPR_SHADE.push(makeTint(lit, lit, lit));
+}
+// the hit flash: near white
+const SPR_FLASH = makeTint(function (v) { return 200 + v * 0.22 | 0; }, function (v) { return 200 + v * 0.22 | 0; },
+  function (v) { return 190 + v * 0.22 | 0; });
+// the wind-up tint: hot red, so a strike you still have time to dodge reads at a glance
+const SPR_TELL = makeTint(function (v) { return 190 + v * 0.26 | 0; }, function (v) { return 36 + v * 0.26 | 0; },
+  function (v) { return 26 + v * 0.24 | 0; });
+
+function bakeSprite(cv, canFlash) {
+  const w = cv.width, h = cv.height;
+  const d = cv.getContext('2d').getImageData(0, 0, w, h);
+  const src = new Uint32Array(d.data.buffer);
+  const px = new Uint32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const c = src[i];
+    px[i] = (c >>> 24) < 24 ? 0 : (c | 0xff000000) >>> 0;
   }
-  return tex;
+  return { w: w, h: h, px: px, canFlash: canFlash };
 }
 
 /* ---------------------------------------------------------- wall textures */
@@ -1975,7 +1992,7 @@ function spriteFrom(size, fn, flash) {
   const cv = newCv(size, size);
   const ctx = cv.getContext('2d');
   ctx.save(); fn(ctx); ctx.restore();
-  return bake(cv, flash !== false);
+  return bakeSprite(cv, flash !== false);
 }
 
 function buildArt() {
@@ -2766,9 +2783,11 @@ function renderWorld(cam) {
     let y0 = (cy - size / 2) | 0, y1 = y0 + size;
     const x0 = (screenX - size / 2) | 0, x1 = x0 + size;
     // a hit flash wins; otherwise a dino winding up pulses red until the blow lands
-    const pix = (t.flash > 0 && frame.flash) ? frame.flash
-      : (t.tell > 0 && frame.tell && Math.sin(W.time * 34) > -0.35) ? frame.tell
-        : frame.shades[t.bright ? SHADES - 1 : shadeIdx(tY)];
+    const pix = frame.px;
+    const tint = (t.flash > 0 && frame.canFlash) ? SPR_FLASH
+      : (t.tell > 0 && frame.canFlash && Math.sin(W.time * 34) > -0.35) ? SPR_TELL
+        : SPR_SHADE[t.bright ? SHADES - 1 : shadeIdx(tY)];
+    const lr = tint[0], lg = tint[1], lb = tint[2];
     const tstep = sw / size;
     let ty0 = 0;
     if (y0 < 0) { ty0 = -y0 * tstep; y0 = 0; }
@@ -2779,11 +2798,15 @@ function renderWorld(cam) {
       const texX = flip ? (sw - 1 - rawTexX) : rawTexX;
       let texY = ty0;
       let o = y0 * RW + x;
+      let lastC = 0, lastOut = 0;            // up close one texel covers several pixels: shade it once
       for (let y = y0; y < yEnd; y++) {
         const tyi = texY | 0;
         if (tyi < sw) {
           const c = pix[(tyi * sw) + texX];
-          if (c !== 0) buf[o] = c;
+          if (c !== 0) {
+            if (c !== lastC) { lastC = c; lastOut = 0xff000000 | (lb[c >> 16 & 255] << 16) | (lg[c >> 8 & 255] << 8) | lr[c & 255]; }
+            buf[o] = lastOut;
+          }
         }
         texY += tstep; o += RW;
       }
@@ -5174,11 +5197,18 @@ function renderEditorGrid() {
     const hInfo = ED_TILE_MAP[hChar] || { label: 'Empty' };
     const hIssue = val.treeIssues.get(edHoverY * MW + edHoverX);
 
+    // Built from text nodes, never HTML: the tile character comes from imported or saved level data.
     const hoverEl = document.getElementById('edHoverInfo');
+    const where = '[' + edHoverX + ',' + edHoverY + ']';
     if (hIssue) {
-      hoverEl.innerHTML = '<span style="color:#ff6b6b;font-weight:700">⚠️ [' + edHoverX + ',' + edHoverY + '] ' + hIssue.desc + '</span>';
+      const warn = document.createElement('span');
+      warn.style.color = '#ff6b6b'; warn.style.fontWeight = '700';
+      warn.textContent = '⚠️ ' + where + ' ' + hIssue.desc;
+      hoverEl.replaceChildren(warn);
     } else {
-      hoverEl.innerHTML = '<b>[' + edHoverX + ',' + edHoverY + ']</b> ' + hInfo.label + ' (' + hChar + ') — ' + hInfo.desc;
+      const b = document.createElement('b');
+      b.textContent = where;
+      hoverEl.replaceChildren(b, ' ' + hInfo.label + ' (' + hChar + ')' + (hInfo.desc ? ' — ' + hInfo.desc : ''));
     }
   }
 
