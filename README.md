@@ -1,119 +1,161 @@
-# 🦖 Rex Rumble (Dino Doom)
+# Rex Rumble
 
-> ### 🎮 **[▶ Play Online in Browser (No Install Needed)](https://richdurham.github.io/dino_doom/)**
+**You are a T. rex with very short arms, and six floors of the prehistoric world want you gone.**
 
-A retro-style 2.5D prehistoric raycasting action game inspired by classic *Wolfenstein 3D* and *Doom*, built entirely in self-contained **HTML5 Canvas** and **Vanilla JavaScript** with procedural graphics, authentic synthesizer sound effects, and Web Audio.
+### [Play it in your browser](https://richdurham.github.io/dino_doom/)
 
-![Rex Rumble Gameplay](https://raw.githubusercontent.com/richdurham/dino_doom/main/screenshot.png)
+No install, no sign-up. It runs on a laptop, a tablet or a phone, and it works offline too: download `rex-rumble.html` and double-click it.
 
----
+![Rex Rumble: a raptor pack in the Verdant Canopy](screenshot.png)
 
-## 🌟 Features
-
-* **Pure Vanilla HTML5 / JS**: Zero bundlers, zero build steps, and it works offline. Just open `rex-rumble.html` in any modern web browser to play! The rounded *Fredoka* font is embedded in the file too, so it looks the same with no internet connection.
-* **Touch controls for phones and tablets**: a floating walk stick under your left thumb, drag-to-look on the right (up and down too), and thumb-sized Claw / Bite / Roar buttons that scale with your screen. The level editor works with a finger too.
-* **2.5D Raycasting Engine with Dynamic Ceilings**:
-  * **Custom Heights (`ceilH`)**: Levels range from standard cavern ceilings to soaring `2.8x` redwood forest canopies and `3.2x` monumental throne halls.
-  * **Four ceilings**: open sky, forest canopy, cave rock and temple gold, so no two floors read as the same room.
-  * **Seamless sky**: flat blue with sparse clouds cut from a noise field that wraps, stretched over six grid squares instead of repeating in every one — so there is no tile edge to spot and no clouds marching in rows.
-  * **Full Vertical Mouse & Touch Look**: Tilt your gaze up into the redwood canopy or down to the forest floor.
-* **4-Angle Directional Dinosaur Sprites**:
-  * Dinosaurs feature distinct front, side-profile (with dynamic flipping), and rear visual angles as they hunt, flee, or patrol.
-* **Prehistoric Roster with Unique AI**:
-  * 🟠 **Velociraptor**: Amber, tiger-striped pack hunters with a red feather crest. One that spots you screeches for the rest, and the pack fans out to arrive from different sides. Each raptor crouches, springs, slashes and immediately backs out of reach.
-  * 🦏 **Triceratops**: Armored behemoths. They paw the ground along the line they intend to charge — seven tenths of a second to leave it.
-  * 🦅 **Pterosaur**: Purple flyers that circle overhead, rear up with a screech, then dive-bomb in a straight line. Sidestep it!
-  * 🐊 **Borealosuchus**: Prehistoric crocodilian lurkers of the murky bayou. They coil before they snap forward.
-  * 👹 **Carnotaurus (Sub-Boss)**: Fast, horned carnivore that rears up and keeps aiming before it commits to a charge line.
-  * 👑 **The Bone King (Boss)**: Colossal apex predator guarding the prehistoric Bone Throne.
-  * 🤖 **The Robo-Spinosaurus (Final Boss)**: A steel spinosaurus with a furnace in its chest and cannons for arms.
-    * **Fire breath** at range. First it *breathes in*: its belly, cheeks and sail vents blaze orange, embers stream into its jaws, and a rising whoosh plays for over a second. Then it roars and hoses fire down a line that sweeps after you, slower than you can walk sideways. The arena's pillars stop the flames.
-    * **Arm cannons** up close. Both arms come up with a charging whine while it flashes red, then it blasts everything in front of it and throws you back.
-    * Claw it during either wind-up to knock it off; bite it while it roars or breathes fire for double damage. Below half health it overheats: shorter cooldowns and a faster sweep. A boss health bar shows once it notices you.
-* **6 Distinct Prehistoric Biomes**:
-  1. **Floor 0: Verdant Canopy** — Open primeval forest under a wide blue sky, with multi-layered depth trees, 100% organic tree-walls, and zero artificial doors.
-  2. **Floor 1: Fernback Ruins** — Ancient stone pillars overgrown by primeval pines with hanging vine curtains.
-  3. **Floor 2: Murky Bayou** — Deep cypress swamp with water ripples and a prehistoric bone gate locked by an amber fossil key, guarded by the Carnotaurus sub-boss. The exit only appears once it falls.
-  4. **Floor 3: Bubbling Basalt** — Volcanic obsidian caverns, ash floors, and a raptor pack that likes the heat.
-  5. **Floor 4: The Bone Throne** — Golden temple arena and the showdown against The Bone King.
-  6. **Floor 5: The Iron Forge** — Riveted iron walls, steel floors and lava pillars for cover. The exit is sealed behind a key gate, and the Robo-Spinosaurus carries the key.
-* **Read-the-tell Combat**: Every dino pulses **red** while it winds up, so a strike can be seen coming and stepped away from.
-  * **Claw** is fast and wide, hits three at once, and lands early enough to knock a dino clean off a strike it has already started.
-  * **Bite** is slow and roots you where you stand — but it does **double damage** to a dino already committed to its own move. Reading the flash and biting into it beats swinging on reflex; per second, spamming the big attack is the worse habit.
-* **Eggs worth finding**: each floor leaves at most one egg in plain sight, as a breadcrumb near your route. The rest sit in thicket nests, in wall alcoves off the main path, or under guard — so clearing a floor means searching it.
-* **T-Rex Roar Stun Mechanic**: Unleash a powerful roar to terrify and stun surrounding dinosaurs.
-* **Built-in In-Game Level Editor**:
-  * Interactive grid painter directly in the browser (open via `Pause Menu` or `Title Screen`).
-  * Real-time safety validation (ensures zero trees block 1-square passages or doors).
-  * Texture pickers, ceiling height slider (`1.0x` to `4.0x`), entity counters, and 100% reachability audits.
-  * **Exit goals**: by default a floor has no goal: the green footprint is there from the start and you just have to find it (past any key gates). A floor can instead hold the footprint back until you beat the boss, scare off every dino, or find every egg; when that happens it appears with a fanfare and shows on the minimap. The Murky Bayou and the Bone Throne use *beat the boss*; the Iron Forge uses *boss drops key*.
-  * **Boss drops key**: tick it and the floor's last boss drops the bone key where it falls, so an exit behind a key gate (`K`) can only be reached by beating the boss.
-  * The audit flags any of these that can't be finished: a walled-in boss, an unreachable egg, or a key (or key-dropping boss) that sits behind its own gate.
-  * The grid takes whatever room the window has and never clips — and if it ever runs out, that side scrolls like the palette does. Embedded on the web page, opening the editor gives the frame the extra height a square map needs.
-  * Saves the floors you change to `localStorage` (floors you haven't touched keep following updates to the game), with one-click **Playtest**, **Export JSON**, **Import**, and **Reset Floor** to factory defaults. Imports with a typo'd texture or an out-of-range ceiling height fall back to safe values instead of breaking the floor.
+Rex Rumble is a retro first-person action game in the spirit of *Wolfenstein 3D* and *Doom*, except that you are the dinosaur. Claw, bite and roar your way through forests, swamps, lava caves and a golden throne room, find the eggs, scare off everything that hunts you, and reach the green footprint that leads down to the next floor. Then build your own floors in the level editor that comes with it.
 
 ---
 
-## 🎮 How to Play
+## How to play
 
-### Quick Start
-1. Clone or download this repository.
-2. Double-click `rex-rumble.html` to open it in Chrome, Firefox, Safari, or Edge.
-3. Click to lock mouse pointer and start stomping!
+Every dino flashes **red** while it winds up an attack. Step out of its line, then punish it.
 
-### Controls
+- **Claw** is fast and wide. It hits up to three dinos at once, and lands early enough to knock a dino off a strike it has already started.
+- **Bite** is slow and roots you to the spot, but it does **double damage** to a dino already committed to its own move. Biting into the red flash beats swinging on reflex.
+- **Roar** freezes every dino near you. You carry up to three; stars give you more.
+- **Golden eggs** are points, and each floor hides most of them: in thickets, in alcoves off the main path, or under guard. **Meat** heals you. The **green footprint** is the way out, though on some floors it only appears once the boss is beaten.
 
-| Action | Keyboard / Mouse | Touch (phone & tablet) |
+| Action | Keyboard and mouse | Touch (phone and tablet) |
 | :--- | :--- | :--- |
-| **Move & Strafe** | `W`, `A`, `S`, `D` (`↑` / `↓` also walk) | Drag anywhere on the left half; a stick appears under your thumb |
-| **Turn Camera** | Mouse horizontal move, or `Q` / `E` (`←` / `→` also turn) | Drag on the right half, sideways |
-| **Look Up / Down (Pitch)** | Mouse vertical move, `PageUp` / `PageDown`, `I` / `K` (`Home` to center) | Drag on the right half, up or down |
-| **Claw** (fast, wide, interrupts a wind-up) | Left Mouse Click or `F` | **Claw** button |
-| **Bite** (slow, roots you, doubles on a committed dino) | Right Mouse Click or `Spacebar` | **Bite** button |
-| **Prehistoric Roar (Stun)** | `R` or `Shift` | **Roar** button |
-| **Pause / Level Editor** | `Escape` or `P` | **II** button (top left) |
-| **Music on / off** | `M` | Pause menu |
+| Move and strafe | `W` `A` `S` `D` (`↑` `↓` also walk) | Drag anywhere on the left half; a stick appears under your thumb |
+| Turn | Move the mouse, or `Q` / `E` (`←` / `→` also turn) | Drag on the right half |
+| Look up and down | Move the mouse, `PageUp` / `PageDown`, `I` / `K` (`Home` re-centres) | Drag up or down on the right half |
+| Claw | Left click or `F` | **Claw** button |
+| Bite | Right click or `Space` | **Bite** button |
+| Roar | `R` or `Shift` | **Roar** button |
+| Pause and level editor | `Esc` or `P` | **II** button, top left |
+| Music on and off | `M` | Pause menu |
 
-The game picks touch or mouse controls from your device, and switches on the fly: touch a touch-screen laptop and the touch controls appear; move the mouse and they go away. If your browser blocks pointer lock (some embeds do), mouse-look is off, clicks still attack, and the arrow keys turn. On a tablet, landscape and the **Full Window** button on the web page give the biggest view.
-
----
-
-## 🗺️ Level Editor & Modding
-
-The game includes a full level creation suite built directly into the engine:
-* Press `Escape` while playing and click **"Edit this floor"** (or click **"Level Editor"** from the title screen).
-* Select tiles from the palette (Walls, Doors, Trees, Dino Eggs, Enemies, Keys, Items) and paint directly onto the 24×24 grid.
-* Click **"Playtest"** to instantly test your custom layout.
-* Click **"Export Level"** to get the JSON representation to share or permanently bake into `rex-rumble.html`.
+The game switches between touch and mouse controls as you use them, so a touch-screen laptop works either way. On a tablet or phone, turn it sideways and use **Full Window** on the web page for the biggest view.
 
 ---
 
-## ✅ Checks
+## The dinosaurs
 
-The game has no build step and no dependencies, and neither do its checks:
+Every dino is drawn from the front, the side and behind, so you can tell at a glance which way it's facing, and whether it's about to come for you.
+
+<table>
+<tr>
+<td width="160" align="center"><img src="media/roster/raptor.gif" width="150" alt="Velociraptor turning around"></td>
+<td><b>Velociraptor</b><br>Amber, tiger-striped pack hunters with a red crest. The first one to spot you screeches for the rest, and the pack fans out to come at you from different sides. Each one crouches, springs, slashes and immediately backs out of reach, so keep turning.</td>
+</tr>
+<tr>
+<td align="center"><img src="media/roster/trike.gif" width="150" alt="Triceratops turning around"></td>
+<td><b>Triceratops</b><br>Armoured and stubborn. It paws the ground along the line it's about to charge, which gives you seven tenths of a second to get off that line.</td>
+</tr>
+<tr>
+<td align="center"><img src="media/roster/ptero.gif" width="150" alt="Pterosaur turning around"></td>
+<td><b>Pterosaur</b><br>Circles overhead, rears up with a screech, then dives at you in a straight line. Sidestep the dive.</td>
+</tr>
+<tr>
+<td align="center"><img src="media/roster/borealosuchus.gif" width="150" alt="Borealosuchus turning around"></td>
+<td><b>Borealosuchus</b><br>A crocodilian lurking in the bayou, with heavy jaws and armoured scales that are softest from behind. It coils before it snaps forward, so there is always a beat to step aside.</td>
+</tr>
+<tr>
+<td align="center"><img src="media/roster/carnotaurus.gif" width="150" alt="Carnotaurus turning around"></td>
+<td><b>Carnotaurus</b> (sub-boss)<br>The horned guardian of the bayou's bone gate. It rears up with a bellow and keeps aiming for half a second before it commits to a charge. Break the line in that window and it thunders past.</td>
+</tr>
+<tr>
+<td align="center"><img src="media/roster/king.gif" width="150" alt="The Bone King turning around"></td>
+<td><b>The Bone King</b> (boss)<br>The colossal ruler of the Bone Throne, with a huge reach and a crown-guard of dinos.</td>
+</tr>
+<tr>
+<td align="center"><img src="media/roster/spino.gif" width="150" alt="The Robo-Spinosaurus turning around"></td>
+<td><b>The Robo-Spinosaurus</b> (final boss)<br>A steel spinosaurus with a furnace for a heart and cannons for arms. When it <i>breathes in</i>, its belly and sail blaze and embers stream into its jaws: get behind a pillar before it roars and sweeps the arena with fire. Get too close and both cannons come up with a whine, then blast you across the room. Claw it during either wind-up to knock it off; bite it while it's breathing fire for double damage. Below half health it overheats and gets faster.</td>
+</tr>
+</table>
+
+---
+
+## Six floors
+
+<table>
+<tr>
+<td width="50%"><img src="media/biomes/biome-verdant-canopy.jpg" alt="Verdant Canopy"><br><b>Verdant Canopy</b><br>Open primeval forest under a wide blue sky. The walls are trees, the doors are gaps in the thicket, and the eggs are tucked into nests.</td>
+<td width="50%"><img src="media/biomes/biome-fernback-ruins.jpg" alt="Fernback Ruins"><br><b>Fernback Ruins</b><br>Ancient stone pillars overgrown with pines and hanging vine curtains.</td>
+</tr>
+<tr>
+<td><img src="media/biomes/biome-murky-bayou.jpg" alt="Murky Bayou"><br><b>Murky Bayou</b><br>A cypress swamp with a bone gate, a fossil key, and the Carnotaurus standing guard. The way out only appears once it falls.</td>
+<td><img src="media/biomes/biome-bubbling-basalt.jpg" alt="Bubbling Basalt"><br><b>Bubbling Basalt</b><br>Volcanic caverns, ash floors, glowing lava walls, and a raptor pack that likes the heat.</td>
+</tr>
+<tr>
+<td><img src="media/biomes/biome-bone-throne.jpg" alt="The Bone Throne"><br><b>The Bone Throne</b><br>A golden temple arena, and the showdown with the Bone King.</td>
+<td><img src="media/biomes/biome-iron-forge.jpg" alt="The Iron Forge"><br><b>The Iron Forge</b><br>Riveted iron, steel floors and lava pillars to hide behind. The exit is sealed behind a key gate, and the Robo-Spinosaurus carries the key.</td>
+</tr>
+</table>
+
+---
+
+## Music and sound
+
+All of it is synthesized live in your browser: there are no music files.
+
+- **Every floor has its own soundtrack**, and every track builds while dinos are actually hunting you: new parts come in, and once the hunt is properly on the track speeds up a little. On the nature tracks the birds and frogs fall silent when something big is near.
+- **A boss theme** takes over when a boss notices you, and builds as the boss weakens. Each boss adds its own colour: congas for the Carnotaurus, a temple bell and choir for the Bone King, an anvil and steam for the Robo-Spinosaurus. When it falls, there are a few seconds of quiet before the floor's own music comes back.
+- **The places make their own sounds.** Lava roars and bubbles, iron plating hums and clanks, mud walls gurgle and hide frogs, trees and vines rustle, gold walls ring faintly, and water laps around you. Each sound gets louder the closer you are, comes from the side its source is on, and is muffled by walls in between.
+
+| Track | Mood | Plays on |
+| :--- | :--- | :--- |
+| **Jungle Drums** | Congas, clave and a marimba under the canopy, a wooden flute, birds overhead | Verdant Canopy |
+| **Misty Ferns** | Ambient: slow pads, a kalimba wandering in the echo, wind, crickets, something huge calling far off | Fernback Ruins |
+| **Bayou Haze** | A slow swampy shuffle: upright bass, a dobro on the blues scale, bullfrogs and cicadas | Murky Bayou |
+| **Magma Chamber** | A deep rumble, taiko drums, a distorted riff, bubbling lava and steam | Bubbling Basalt |
+| **Sunken Temple** | Ancient magic: a droning tanpura, temple bells, a ritual drum, a choir and a snake-charmer reed | The Bone Throne |
+| **Iron Forge** | Pistons, a hammer on the anvil, clockwork and a growling bass | The Iron Forge |
+| **Apex Predator** | The boss fight: pounding drums, brass stabs and a horn theme | Any floor, once a boss notices you |
+| **Rex Riff** | The original stomp: a bass riff, a drum kit and a square-wave tune | Pick it in the editor |
+| **Silence** | No music, just the dinos | Pick it in the editor |
+
+---
+
+## Build your own floors
+
+![The level editor, open on the Murky Bayou](media/editor.jpg)
+
+The level editor is built into the game. Open it from the title screen, or press `Esc` while playing and choose **Edit this floor**.
+
+- **Paint** walls, doors, trees, dinos, bosses, eggs, keys and pickups onto the 24×24 grid, with a mouse or a finger.
+- **Set the mood**: floor and ceiling textures (grass, water, ash, temple tile, steel; open sky, forest canopy, cave or gold), the ceiling height, and the floor's music. Press **Listen** to hear a track right there: it plays calm for 20 seconds, then the way it sounds when dinos are hunting you. The tiles bring their own sounds with them, so painting lava gives you lava to hear.
+- **Choose the exit's goal**: the footprint can be there from the start, or appear only once you beat the boss, scare off every dino, or find every egg. Tick **Boss drops key** and the last boss drops the key for the floor's key gates.
+- **It checks your work** as you paint: a tree plugging a one-tile passage, an exit you can't reach, a walled-in boss, an unreachable egg, or a key locked behind its own gate.
+- **Playtest** in one click. **Export** a floor as JSON to share it, and **Import** one someone sent you. Your changes are saved in your browser, and **Reset to Default** brings back the original floor.
+
+---
+
+## Under the hood
+
+The whole game is one self-contained HTML file: plain JavaScript and HTML5 Canvas, no frameworks, no build step and no downloads at runtime. The rounded *Fredoka* font and the roar sample are embedded in it.
+
+- **A 2.5D raycaster** in the *Wolfenstein* tradition, with textured floors and ceilings, per-floor ceiling heights (`1.0x` up to the throne room's `3.2x`), full vertical look, and a sky that wraps seamlessly.
+- **Procedural art**: every texture and sprite is drawn in code when the game starts.
+- **Procedural audio**: Web Audio oscillators, filtered noise, a generated reverb, a tempo-synced echo and a soft clipper make every effect, the ambience and all nine soundtracks.
+
+### Checks
+
+The game has no dependencies, and neither do its checks:
 
 ```sh
 node tools/check.js
 ```
 
-It parses every inline script, boots the game headlessly (`tools/harness.js` stubs the DOM,
-the 2D canvas and Web Audio), runs **the in-game editor's own audit** over all six shipped
-floors, and plays 900 frames on each one with every dino awake — watching for exceptions,
-NaNs, and anything clipping out of the grid.
+It parses every inline script, boots the game headlessly (`tools/harness.js` stubs the DOM, the 2D canvas and Web Audio), runs **the in-game editor's own audit** over all six shipped floors, and plays 900 frames on each one with every dino awake, watching for exceptions, NaNs, and anything clipping out of the grid. It also plays every soundtrack calm and hunted (the Web Audio stub throws on a non-finite pitch or a ramp to zero, the way a browser does), checks the tempo only changes on a bar line, checks a boss brings its theme in and hands back to the floor's, and checks each floor's sounds are louder up close and swap sides when you turn round.
 
-The floor audit calls `getEditorValidation()` rather than reimplementing its rules, so it
-can't drift from what the editor tells you when you build a level yourself.
-
-GitHub Actions runs the same command on every pull request.
+The floor audit calls `getEditorValidation()` rather than reimplementing its rules, so it can't drift from what the editor tells you when you build a level yourself. GitHub Actions runs the same command on every pull request.
 
 ---
 
-## 📜 Font & Audio Credits
-* [Fredoka](https://github.com/hafontia/Fredoka-One) by The Fredoka Project Authors, licensed under the [SIL Open Font License 1.1](fonts/OFL.txt). A Latin subset (`fonts/Fredoka.woff2`) is embedded in `rex-rumble.html`.
-* Dinosaur Roar audio effect adapted from [BESTROFLMAN on FreeSound](https://freesound.org/people/BESTROFLMAN/sounds/212433/), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
-* Procedural synthesizers for bites, footstep stomps, chomp impact, and the soundtrack, all generated in real time via the Web Audio API. Effects and music sit on separate buses, and the arrangement thickens while dinos are actually hunting you.
+## Credits
 
----
+- [Fredoka](https://github.com/hafontia/Fredoka-One) by The Fredoka Project Authors, licensed under the [SIL Open Font License 1.1](fonts/OFL.txt). A Latin subset (`fonts/Fredoka.woff2`) is embedded in `rex-rumble.html`.
+- The dinosaur roar is adapted from [BESTROFLMAN on FreeSound](https://freesound.org/people/BESTROFLMAN/sounds/212433/), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+- Everything else you hear is synthesized in real time.
 
-## 📄 License
-This project is open-source under the MIT License. Feel free to remix, build custom levels, and expand the dinosaur kingdom!
+## License
+
+MIT. Remix it, build custom floors, and expand the dinosaur kingdom.

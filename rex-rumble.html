@@ -248,6 +248,8 @@ body.touch .ed-btn,body.touch .ed-sel,body.touch .ed-input{min-height:42px}
         <label style="font-size:13px;display:flex;align-items:center;gap:6px" title="When the floor's last boss is beaten, it drops the bone key for the key gates (K)">
           <input type="checkbox" id="edBossKey"> Boss drops key
         </label>
+        <select id="edMusic" class="ed-sel" title="The music this floor plays"></select>
+        <button id="edBtnListen" class="ed-btn ghost" title="Hear this floor's music: calm at first, then the way it builds when dinos hunt you">♪ Listen</button>
         <button id="edBtnPlay" class="ed-btn accent">▶ Playtest</button>
         <button id="edBtnExport" class="ed-btn">Export</button>
         <button id="edBtnImport" class="ed-btn ghost">Import</button>
@@ -2057,7 +2059,7 @@ function buildArt() {
 }
 // Level data: generated grids. Legend in MAPKEY below.
 const LEVELS=[
-{name:'Verdant Canopy',ceilH:2.80,sub:'Open sky, towering pines, and something in the ferns',floor:'grass',ceil:'sky',goal:'none',grid:[
+{name:'Verdant Canopy',ceilH:2.80,sub:'Open sky, towering pines, and something in the ferns',floor:'grass',ceil:'sky',goal:'none',music:'jungle',grid:[
 "%%%%%%%%%%%%%%%%%%%%%%%%",
 "%%..P......%%%....$..%%%",
 "%%...T..T...%%..T..T.%%%",
@@ -2083,7 +2085,7 @@ const LEVELS=[
 "%%%.....$T...%%.......%%",
 "%%%%%%%%%%%%%%%%%%%%%%%%"
 ]},
-{name:'Fernback Ruins',ceilH:2.20,sub:'Stomp around and find the way out',floor:'grass',ceil:'canopy',goal:'none',grid:[
+{name:'Fernback Ruins',ceilH:2.20,sub:'Stomp around and find the way out',floor:'grass',ceil:'canopy',goal:'none',music:'mist',grid:[
 "%%%%%%%%%%%%%%%%%%%%%%%%",
 "%%%%%%%%%%.m%%%%%%%%%%%%",
 "%%......$%..%........$%%",
@@ -2109,7 +2111,7 @@ const LEVELS=[
 "%%%%%%%%%%s.%%%%%%%%%%%%",
 "%%%%%%%%%%%%%%%%%%%%%%%%"
 ]},
-{name:'Murky Bayou',ceilH:3.00,sub:'Something with horns is guarding the bone gate',floor:'water',ceil:'canopy',goal:'boss',grid:[
+{name:'Murky Bayou',ceilH:3.00,sub:'Something with horns is guarding the bone gate',floor:'water',ceil:'canopy',goal:'boss',music:'bayou',grid:[
 "MMMMMMMMMMMMMMMMMMMMMMMM",
 "MM..P......MMM....$..MMM",
 "MM....T.....MM..T..T.MMM",
@@ -2135,7 +2137,7 @@ const LEVELS=[
 "MMM.E....b.m..b......$MM",
 "MMMMMMMMMMMMMMMMMMMMMMMM"
 ]},
-{name:'Bubbling Basalt',ceilH:2.40,sub:'Mind the lava — the raptors like it hot',floor:'ash',ceil:'cave',goal:'none',grid:[
+{name:'Bubbling Basalt',ceilH:2.40,sub:'Mind the lava — the raptors like it hot',floor:'ash',ceil:'cave',goal:'none',music:'magma',grid:[
 "LLLLLLLLLLLLLLLLLLLLLLLL",
 "LLLLLLLLLLLLLLLLLLLLLLLL",
 "LL.P..rLLLLLLLLLL.r.k.LL",
@@ -2161,7 +2163,7 @@ const LEVELS=[
 "LLLLLLLLLLLLLLLLLLLLLLLL",
 "LLLLLLLLLLLLLLLLLLLLLLLL"
 ]},
-{name:'The Bone Throne',ceilH:3.20,sub:'Somebody big lives up there',floor:'tile',ceil:'temple',goal:'boss',grid:[
+{name:'The Bone Throne',ceilH:3.20,sub:'Somebody big lives up there',floor:'tile',ceil:'temple',goal:'boss',music:'temple',grid:[
 "GGGGGGGGGGGGGGGGGGGGGGGG",
 "GGGGGGGGGGGGGGGGGGGGGGGG",
 "GGG$m......$$......m$GGG",
@@ -2187,7 +2189,7 @@ const LEVELS=[
 "GGGGGGGGGGGPmGGGGGGGGGGG",
 "GGGGGGGGGGGGGGGGGGGGGGGG"
 ]},
-{name:'The Iron Forge',ceilH:3.40,sub:'Something mechanical is breathing in the dark',floor:'plate',ceil:'cave',goal:'none',bossKey:true,grid:[
+{name:'The Iron Forge',ceilH:3.40,sub:'Something mechanical is breathing in the dark',floor:'plate',ceil:'cave',goal:'none',music:'forge',bossKey:true,grid:[
 "IIIIIIIIIIIIIIIIIIIIIIII",
 "IIIIIIIIIII.E.IIIIIIIIII",
 "III$m......IKI......m$II",
@@ -2258,12 +2260,13 @@ function cleanLevel(L, base) {
     goal: EXIT_GOALS.indexOf(L.goal) >= 0 ? L.goal :
       goalOf({ boss: typeof L.boss === 'boolean' ? L.boss : base.boss, grid: L.grid }),
     bossKey: typeof L.bossKey === 'boolean' ? L.bossKey : !!base.bossKey,
+    music: trackOk(L.music) ? L.music : base.music,
     grid: padGrid(L.grid)
   };
 }
 
 function levelKey(L) {
-  return [L.name, L.ceilH, L.sub, L.floor, L.ceil, goalOf(L), !!L.bossKey, L.grid.join('|')].join('~');
+  return [L.name, L.ceilH, L.sub, L.floor, L.ceil, goalOf(L), !!L.bossKey, L.music, L.grid.join('|')].join('~');
 }
 
 function loadSavedCustomLevels() {
@@ -2361,6 +2364,7 @@ function buildLevel(idx) {
     keyDoorTex: isOutdoor ? TEX.bonegate : TEX.keydoor,
     eggsTotal: 0, eggs: 0, scared: 0, dinosTotal: 0,
     hasKey: false, keyNeeded: false, goal: goalOf(L), goalMet: false, bossKey: !!L.bossKey,
+    bossQuiet: 0,                 // W.time until which the music holds off, after a boss falls
     // only one raptor leaves the circle at a time, so a pack reads as a hunt, not a blender
     packPounce: 0,
     spawn: { x: 1.5, y: 1.5 }, exit: null, time: 0
@@ -2864,15 +2868,18 @@ function audioStart() {
   noiseBuf = AC.createBuffer(1, n, AC.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  musicRig();
+  ambRig();
   nextNote = AC.currentTime;
 }
 
 function tone(f0, f1, dur, type, vol, delay, bus) {
   if (!AC) return;
   const out = bus || sfxBus;
-  if (out === musicBus ? !SET.music : !SET.sfx) return;
+  if (out === musicBus ? musicMuted() : !SET.sfx) return;
   const t = AC.currentTime + (delay || 0);
   const o = AC.createOscillator(), g = AC.createGain();
+  g.gain.value = 0;               // a gain node starts at 1: silent until the note does (see noiseHit)
   o.type = type || 'square';
   o.frequency.setValueAtTime(f0, t);
   if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
@@ -2886,13 +2893,16 @@ function tone(f0, f1, dur, type, vol, delay, bus) {
 function noiseHit(dur, vol, freq, delay, type, bus) {
   if (!AC) return;
   const out = bus || sfxBus;
-  if (out === musicBus ? !SET.music : !SET.sfx) return;
+  if (out === musicBus ? musicMuted() : !SET.sfx) return;
   const t = AC.currentTime + (delay || 0);
   const s = AC.createBufferSource(); s.buffer = noiseBuf;
   const f = AC.createBiquadFilter();
   f.type = type || 'bandpass'; f.frequency.setValueAtTime(freq, t);
   f.frequency.exponentialRampToValueAtTime(Math.max(80, freq * 0.35), t + dur);
   const g = AC.createGain();
+  // A gain node starts at 1, and a buffer source can sound a sample before its start time lands. Through a
+  // highpass that one sample was a click ten times the hit's own level (a hat set to 0.075 peaked at 0.65).
+  g.gain.value = 0;
   g.gain.setValueAtTime(vol, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(f); f.connect(g); g.connect(out);
@@ -3019,11 +3029,295 @@ const SFX = {
 };
 
 /* ---- soundtrack ---------------------------------------------------------
-   A sixteen-step riff over a four-bar chord cycle, with a kit, a pad and a
-   counter-melody stacked on it. The arrangement thickens while dinos are
-   actually hunting you (`musicHeat`), so an empty floor sounds empty and a
-   pack closing in sounds like one. Everything goes to `musicBus`. */
-const MUSIC_ROOTS = [55, 49, 43.65, 58.27, 51.91, 41.2];            // one per floor
+   A library of procedural tracks. Each floor names one (`music` in its level data, picked
+   in the editor), and musicTick() plays it a step at a time, a little ahead of the clock.
+   Every track thickens while dinos are actually hunting you (`musicHeat`), so an empty
+   floor sounds empty and a pack closing in sounds like one; on the nature tracks the birds
+   and frogs go quiet too. Everything goes to `musicBus`, most of it through a shared reverb
+   and a tempo-synced echo that each track dials in for itself. */
+
+/* The music's room: a long, dark reverb and an echo, which every track sends into, and a
+   soft clipper for the grit in the volcano's riff and the forge's bass. */
+let musicVerb = null, verbOut = null, echoIn = null, echoFb = null, driveIn = null, driveOut = null;
+let musicTrack = null;                    // the track being scheduled; a change starts the new one from the top
+let musicBpm = 0, musicPushed = false;    // the tempo it's playing at, and whether the hunt has pushed it up
+let echoLines = [], echoAt = 0;           // two echoes, so a tempo change can move to a fresh one (see retime)
+const HUNT_PUSH = 1.08;                   // how much faster a track plays while you're hunted
+let edListen = null, edListenAt = 0;      // the editor's Listen button: the track it previews, and since when
+
+function musicRig() {
+  musicVerb = AC.createConvolver();
+  musicVerb.buffer = verbIR(3.4);
+  verbOut = AC.createGain(); verbOut.gain.value = 0.4;
+  musicVerb.connect(verbOut); verbOut.connect(musicBus);
+  echoLines = [echoLine(), echoLine()]; echoAt = 0;
+  echoIn = echoLines[0].dl; echoFb = echoLines[0].fb;
+  driveIn = AC.createWaveShaper();
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) curve[i] = Math.tanh((i / 511.5 - 1) * 2.5);
+  driveIn.curve = curve;
+  const tame = AC.createBiquadFilter(); tame.type = 'lowpass'; tame.frequency.value = 1800;
+  driveOut = AC.createGain(); driveOut.gain.value = 0;
+  driveIn.connect(tame); tame.connect(driveOut); driveOut.connect(musicBus);
+}
+
+/* An echo: repeats come back darker each time, and wash into the reverb as well. Notes send to `echoIn`. */
+function echoLine() {
+  const dl = AC.createDelay(2), dark = AC.createBiquadFilter(), fb = AC.createGain();
+  dark.type = 'lowpass'; dark.frequency.value = 2600; fb.gain.value = 0;
+  dl.connect(dark); dark.connect(fb); fb.connect(dl);
+  dark.connect(musicBus); dark.connect(musicVerb);
+  return { dl: dl, fb: fb };
+}
+
+/* Change tempo at `at`, a bar line. Retiming an echo while it rings makes its repeats warble, so new notes
+   move to the spare line, already set to the new tempo, and the old line stops feeding back and dies away.
+   It is empty again well before the next bar, when the tempo could change back. */
+function retime(T, spb, at) {
+  const from = echoLines[echoAt], to = echoLines[1 - echoAt];
+  from.fb.gain.setTargetAtTime(0, at, 0.25);
+  to.dl.delayTime.setValueAtTime(T.echo * spb, at);
+  to.fb.gain.setValueAtTime(T.fb, at);
+  echoAt = 1 - echoAt; echoIn = to.dl; echoFb = to.fb;
+}
+
+/* A reverb tail made from noise: it dies away over `sec` seconds and gets darker as it goes. */
+function verbIR(sec) {
+  const n = Math.floor(AC.sampleRate * sec), ir = AC.createBuffer(2, n, AC.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = ir.getChannelData(c);
+    let lp = 0;
+    for (let i = 0; i < n; i++) {
+      const k = i / n;
+      lp += (Math.random() * 2 - 1 - lp) * (0.85 - 0.7 * k);
+      d[i] = lp * Math.pow(1 - k, 2.6);
+    }
+  }
+  return ir;
+}
+
+// Music is off in the settings, unless the level editor's Listen button asked to hear a track.
+function musicMuted() { return !SET.music && !(mode === 'editor' && edListen); }
+
+/* While a tile's one-off sound is being made (see the ambience below), voice() and hiss() play it there
+   instead of in the music: on the ambience bus, at the tile's loudness and stereo position, and dry. */
+let soundTo = null;
+function fromTile(at, fn) { soundTo = at; try { fn(); } finally { soundTo = null; } }
+function voiceMuted() { return soundTo ? !SET.sfx : musicMuted(); }
+
+function semi(f, n) { return f * Math.pow(2, n / 12); }
+function between(a, b) { return a + Math.random() * (b - a); }
+function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+
+/* The envelope every note shares: up to `vol` over `att` seconds, sit there for `hold`, then die away by `dur`. */
+function musicEnv(o, t, dur, scale) {
+  const g = AC.createGain(), vol = (o.vol || 0.1) * scale, att = o.att || 0.005;
+  g.gain.value = 0;                         // silent before the note starts, or it can click (see noiseHit)
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + att);
+  const hold = Math.min(o.hold || 0, dur - att - 0.02);
+  if (hold > 0) g.gain.setValueAtTime(vol, t + att + hold);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  return g;
+}
+
+function lfo(rate, depth, t, end) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.frequency.value = rate; g.gain.value = depth;
+  o.connect(g); o.start(t); o.stop(end + 0.05);
+  return g;
+}
+
+/* From a note's envelope to the speakers: tremolo, a place in the stereo field, the reverb and echo sends. */
+function route(node, o, t, end) {
+  const at = soundTo, pan = at ? clamp(at.pan + (o.pan || 0) * 0.25, -1, 1) : o.pan;
+  let out = node;
+  if (o.am) {
+    const tr = AC.createGain(); tr.gain.value = 1 - o.am[1];
+    lfo(o.am[0], o.am[1], t, end).connect(tr.gain);
+    out.connect(tr); out = tr;
+  }
+  if (pan && AC.createStereoPanner) {
+    const p = AC.createStereoPanner(); p.pan.value = clamp(pan, -1, 1);
+    out.connect(p); out = p;
+  }
+  if (at) { out.connect(ambBus); return; }        // the music's reverb follows the track, not the room
+  out.connect(o.drive ? driveIn : musicBus);
+  if (o.wet) send(out, musicVerb, o.wet);
+  if (o.echo) send(out, echoIn, o.echo);
+}
+function send(from, to, amt) { const g = AC.createGain(); g.gain.value = amt; from.connect(g); g.connect(to); }
+
+/* One pitched note. Only f is required:
+   f, and f1 to glide to over `gl` s; type; n oscillators spread `det` cents apart; vol (for the whole note),
+   d (delay), dur, att, hold; cut / cut1 / q / ft, a filter and its sweep over `cg` s; vib [rate, depth as a
+   fraction of f]; am [rate, depth], a tremolo; pan; wet and echo, the sends; drive, through the clipper. */
+function voice(o) {
+  if (!AC || voiceMuted()) return;
+  const n = o.n || 1, t = AC.currentTime + (o.d || 0);
+  const dur = Math.max(o.dur || 0.3, (o.att || 0.005) + 0.03), end = t + dur;
+  const env = musicEnv(o, t, dur, (soundTo ? soundTo.gain : 1) / Math.sqrt(n));
+  let head = env;
+  if (o.cut) {
+    const fl = AC.createBiquadFilter();
+    fl.type = o.ft || 'lowpass'; fl.Q.value = o.q || 0.7;
+    fl.frequency.setValueAtTime(o.cut, t);
+    if (o.cut1) fl.frequency.exponentialRampToValueAtTime(o.cut1, t + (o.cg || dur));
+    fl.connect(env); head = fl;
+  }
+  const vib = o.vib ? lfo(o.vib[0], o.f * o.vib[1], t, end) : null;
+  for (let i = 0; i < n; i++) {
+    const osc = AC.createOscillator();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(o.f, t);
+    if (o.f1) osc.frequency.exponentialRampToValueAtTime(o.f1, t + (o.gl || dur));
+    if (n > 1) osc.detune.value = (i - (n - 1) / 2) * (o.det || 8);
+    if (vib) vib.connect(osc.frequency);
+    osc.connect(head); osc.start(t); osc.stop(end + 0.05);
+  }
+  route(env, o, t, end);
+}
+
+/* Filtered noise, with the same envelope, sends and options as voice(); f / f1 / gl sweep the filter. */
+function hiss(o) {
+  if (!AC || voiceMuted()) return;
+  const t = AC.currentTime + (o.d || 0), dur = Math.max(o.dur || 0.3, (o.att || 0.005) + 0.03), end = t + dur;
+  const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+  const fl = AC.createBiquadFilter();
+  fl.type = o.ft || 'bandpass'; fl.Q.value = o.q || 1;
+  fl.frequency.setValueAtTime(o.f, t);
+  if (o.f1) fl.frequency.exponentialRampToValueAtTime(o.f1, t + (o.gl || dur));
+  const env = musicEnv(o, t, dur, soundTo ? soundTo.gain : 1);
+  s.connect(fl); fl.connect(env);
+  s.start(t, Math.random() * 1.1); s.stop(end + 0.05);      // a different stretch of the noise each time
+  route(env, o, t, end);
+}
+
+/* ---- instruments ---- */
+// a struck bar: the note, and the knock of its first overtone (4x is a marimba, 5.4x more of a kalimba)
+function mallet(f, vol, d, o) {
+  o = o || {};
+  voice({ f: f, vol: vol, d: d, dur: o.dur || 0.7, pan: o.pan, wet: o.wet, echo: o.echo });
+  voice({ f: f * (o.ov || 4), vol: vol * 0.3, d: d, dur: 0.09, pan: o.pan, wet: o.wet });
+}
+// Risset's bell: partials that aren't whole multiples, the lowest two beating slowly against each other
+const BELL = [[0.56, 1, 1, 0.6], [0.92, 0.7, 0.8, 1.2], [1.19, 0.9, 0.55, 0], [1.71, 0.6, 0.4, 0], [2.74, 0.45, 0.3, 0], [3.76, 0.3, 0.2, 0]];
+function bell(f, vol, dur, d, o) {
+  o = o || {};
+  BELL.forEach(function (p) { voice({ f: f * p[0] + p[3], vol: vol * p[1], dur: dur * p[2], d: d, pan: o.pan, wet: o.wet || 0.5 }); });
+}
+// a singing bowl: two near-unison sines beating, and the rim's high partial
+function bowl(f, d) {
+  voice({ f: f, vol: 0.03, att: 0.2, dur: 8, d: d, wet: 0.6, pan: -0.2 });
+  voice({ f: f * 1.004, vol: 0.03, att: 0.2, dur: 8, d: d, wet: 0.6, pan: 0.2 });
+  voice({ f: f * 2.71, vol: 0.008, att: 0.1, dur: 4, d: d, wet: 0.6 });
+}
+// a breathy wooden flute: a soft triangle, a little vibrato, a puff of air at the start
+function flute(f, len, vol, d) {
+  voice({ f: f, type: 'triangle', vol: vol, att: 0.05, hold: len * 0.6, dur: len + 0.25, d: d, vib: [5, 0.006], wet: 0.35, echo: 0.25 });
+  hiss({ f: f * 2, q: 4, vol: vol * 0.3, att: 0.01, dur: 0.12, d: d, wet: 0.2 });
+}
+// a nasal double reed, the snake charmer's: a bright saw, wide vibrato, and a slide up into each note
+function reed(f, len, vol, d) {
+  voice({ f: f * 0.97, f1: f, gl: 0.07, type: 'sawtooth', vol: vol, att: 0.04, hold: len * 0.7, dur: len + 0.2, d: d,
+    cut: f * 4, q: 2.5, vib: [5.5, 0.012], wet: 0.35, echo: 0.2 });
+}
+// a brass horn: two saws whose filter opens as the note swells
+function horn(f, len, vol, d) {
+  voice({ f: f, type: 'sawtooth', n: 2, det: 6, vol: vol, att: 0.05, hold: len * 0.7, dur: len + 0.15, d: d,
+    cut: f * 2, cut1: f * 6, cg: 0.2, q: 1, vib: [5, 0.004], wet: 0.35, echo: 0.15 });
+}
+// a slow pad: each note two detuned saws behind a filter that opens as the chord sounds
+function pad(notes, vol, dur, d, o) {
+  o = o || {};
+  notes.forEach(function (f, i) {
+    voice({ f: f, type: o.type || 'sawtooth', n: 2, det: o.det || 7, vol: vol / notes.length, d: d, dur: dur,
+      att: o.att || dur * 0.3, hold: dur * 0.35, cut: o.cut || 900, cut1: o.cut1, q: 0.5,
+      pan: (i / Math.max(1, notes.length - 1) - 0.5) * 0.7, wet: o.wet === undefined ? 0.5 : o.wet });
+  });
+}
+// an "aah" choir: three detuned saws a voice, through a vowel-ish band
+function choir(notes, vol, dur, d) {
+  notes.forEach(function (f, i) {
+    voice({ f: f, type: 'sawtooth', n: 3, det: 14, vol: vol / notes.length, att: dur * 0.35, hold: dur * 0.3, dur: dur, d: d,
+      cut: 850, ft: 'bandpass', q: 1.1, vib: [4.5, 0.004], pan: (i / (notes.length - 1) - 0.5) * 0.8, wet: 0.6 });
+  });
+}
+// a plucked string (tanpura, dobro): bright at the pluck and mellowing as it rings, optionally sliding into the note
+function pluck(f, vol, dur, d, o) {
+  o = o || {};
+  voice({ f: o.slide ? f * 0.94 : f, f1: o.slide ? f : 0, gl: 0.08, type: 'sawtooth', vol: vol, d: d, dur: dur,
+    cut: f * 7, cut1: f * 1.5, cg: dur * 0.6, q: o.q || 2, pan: o.pan, wet: o.wet === undefined ? 0.25 : o.wet });
+}
+// a hand or skin drum: a sine that drops in pitch, and the slap of the hand
+function drum(f, vol, d, o) {
+  o = o || {};
+  voice({ f: f, f1: f * (o.drop || 0.75), gl: 0.12, vol: vol, d: d, dur: o.dur || 0.3, pan: o.pan, wet: o.wet });
+  hiss({ f: o.slap ? 2400 : 900, q: 1.2, vol: o.slap || vol * 0.3, d: d, dur: 0.04, pan: o.pan });
+}
+function shaker(vol, d, pan) { hiss({ f: 7000, ft: 'highpass', att: 0.01, vol: vol, dur: 0.07, d: d, pan: pan }); }
+function dum(vol, d) { drum(110, vol, d, { drop: 0.62, dur: 0.45, wet: 0.35 }); }
+function tek(vol, d, pan) {
+  hiss({ f: 3200, q: 1.5, vol: vol, dur: 0.06, d: d, pan: pan, wet: 0.3 });
+  voice({ f: 640, type: 'triangle', vol: vol * 0.6, dur: 0.05, d: d, pan: pan });
+}
+// a big drum: 3 is a full swing, 1 a tap
+function taiko(k, d) { drum(k === 3 ? 70 : 88, [0, 0.085, 0.16, 0.24][k], d, { drop: 0.6, dur: 0.4 + k * 0.2, wet: 0.35 }); }
+function rim(d) {
+  voice({ f: 900, type: 'triangle', vol: 0.05, dur: 0.035, d: d, pan: -0.2 });
+  hiss({ f: 2400, q: 3, vol: 0.06, dur: 0.04, d: d, pan: -0.2, wet: 0.2 });
+}
+// a hammer on hot iron: a short bright ring of bar partials
+function anvil(d, pan) {
+  [[1, 1, 0.5], [2.76, 0.5, 0.3], [5.4, 0.3, 0.15]].forEach(function (p) {
+    voice({ f: 1250 * p[0], vol: 0.065 * p[1], dur: p[2], d: d, pan: pan, wet: 0.3, echo: 0.25 });
+  });
+  hiss({ f: 4000, q: 1.5, vol: 0.07, dur: 0.03, d: d, pan: pan });
+}
+// a piston bottoming out
+function clunk(d) {
+  hiss({ f: 700, q: 4, vol: 0.14, dur: 0.08, d: d });
+  voice({ f: 140, f1: 90, gl: 0.06, type: 'square', vol: 0.07, dur: 0.07, d: d, cut: 900 });
+}
+
+/* ---- the wildlife and the weather, part of each track's mood (so they're on the music bus) ---- */
+function bird(d, pan) {                     // a quick run of chirps somewhere up in the canopy
+  const f = between(2200, 3600), up = between(1.15, 1.6);
+  for (let i = 0, n = 2 + Math.floor(Math.random() * 3); i < n; i++)
+    voice({ f: f, f1: f * up, gl: 0.06, vol: 0.04, dur: 0.08, d: d + i * between(0.09, 0.14), pan: pan, wet: 0.4, echo: 0.2 });
+}
+function crickets(d) {
+  const pan = between(-0.9, 0.9);
+  for (let i = 0; i < 3; i++) voice({ f: 4600, vol: 0.016, dur: 0.03, d: d + i * 0.05, pan: pan, wet: 0.2 });
+}
+function cicadas(d, dur) { hiss({ f: 4800, q: 7, am: [32, 0.45], att: dur * 0.4, hold: dur * 0.2, vol: 0.05, dur: dur, d: d, pan: between(-0.5, 0.5), wet: 0.3 }); }
+function frog(d, big) {                     // a bullfrog, or a little peeper
+  const pan = between(-0.9, 0.9);
+  if (big) for (let i = 0; i < 2; i++) voice({ f: between(80, 105), type: 'sawtooth', cut: 520, ft: 'bandpass', q: 4, am: [26, 0.45], vol: 0.16, att: 0.03, dur: 0.3, d: d + i * 0.42, pan: pan, wet: 0.25 });
+  else for (let i = 0; i < 3; i++) voice({ f: 2300, f1: 3000, gl: 0.05, vol: 0.035, dur: 0.07, d: d + i * 0.16, pan: pan, wet: 0.35 });
+}
+function drip(d) {                          // a drop of water into a still pool
+  const f = between(900, 1500);
+  voice({ f: f, f1: f * 2.2, gl: 0.04, vol: 0.05, dur: 0.1, d: d, pan: between(-0.7, 0.7), wet: 0.7, echo: 0.3 });
+}
+function bubble(d) {                        // lava (or mud) letting go of a bubble
+  const f = between(70, 130);
+  voice({ f: f, f1: f * between(2, 3.4), gl: 0.11, vol: 0.08, dur: 0.15, d: d, pan: between(-0.8, 0.8), wet: 0.3 });
+}
+function crackle(d, span) {                 // embers: a few tiny dry clicks
+  for (let i = 0, n = 1 + Math.floor(Math.random() * 3); i < n; i++)
+    hiss({ f: between(2500, 6000), ft: 'highpass', att: 0.001, vol: between(0.02, 0.06), dur: 0.012, d: d + between(0, span), pan: between(-0.9, 0.9) });
+}
+function steam(d) { hiss({ f: 5200, f1: 2600, ft: 'highpass', att: 0.04, hold: 0.25, vol: 0.05, dur: 0.8, d: d, pan: between(-0.8, 0.8), wet: 0.3 }); }
+function gust(d, dur) {                     // wind moving through the ferns
+  hiss({ f: between(350, 600), f1: between(700, 1200), gl: dur * 0.6, q: 1.2, att: dur * 0.4, hold: dur * 0.1, vol: 0.08, dur: dur, d: d, pan: between(-0.6, 0.6), wet: 0.5 });
+}
+function rumble(d, dur) { hiss({ f: 180, f1: 90, ft: 'lowpass', q: 0.8, att: dur * 0.35, hold: dur * 0.2, vol: 0.4, dur: dur, d: d, pan: between(-0.4, 0.4), wet: 0.2 }); }
+function farCall(d) {                       // something very big, a long way off
+  voice({ f: between(140, 190), f1: 70, gl: 1.6, type: 'sawtooth', n: 2, det: 25, cut: 600, cut1: 250, att: 0.25, vol: 0.05, dur: 1.9, d: d, wet: 0.9, pan: between(-0.7, 0.7) });
+}
+
+/* ---- the tracks' material: chords and patterns in semitones, phrases as [step, semitones, length in steps] ---- */
 const PROG = [[0, 7, 15], [-2, 5, 12], [3, 10, 15], [-4, 3, 14]];   // bar chords, semitones off the root
 const BASSLINE = [0, 0, 7, 0, 5, 0, 7, 3, 0, 0, 10, 0, 5, 7, 3, 0];
 const LEAD_A = [12, -1, 15, 12, 19, -1, 17, 15, 12, -1, 10, 12, 15, -1, 19, -1];
@@ -3031,6 +3325,310 @@ const LEAD_B = [19, -1, 22, 19, 17, -1, 15, 17, 19, -1, 24, 22, 19, 17, 15, -1];
 const KICK = [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0];
 const SNARE = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1];
 const HAT = [2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 2, 1, 1, 1];       // 2 = accented
+
+const JUNGLE_LOW = [0, -2, -4, -2];                                                // Dm  C  Bb  C
+const JUNGLE_MARIMBA = [12, -1, 7, -1, 10, 12, -1, 7, -1, 5, -1, 7, 3, -1, 5, -1];  // -1 = rest
+const JUNGLE_CONGA = [0, 0, 0, 0, 1, 0, 2, 2, 0, 0, 0, 0, 1, 0, 3, 3];             // 1 slap, 2 open, 3 low open
+const CLAVE = [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0];                    // the 3-2 son clave
+const JUNGLE_FLUTE = [[0, 12, 6], [6, 15, 2], [8, 17, 4], [12, 19, 4], [16, 22, 6], [22, 19, 2], [24, 17, 8],
+  [32, 19, 6], [38, 17, 2], [40, 15, 4], [44, 12, 4], [48, 10, 6], [54, 12, 10]];
+
+const MIST_CHORDS = [[-12, [15, 19, 22, 26]], [-16, [8, 12, 15, 19]], [-19, [5, 8, 12, 19]], [-17, [7, 12, 14, 17]]];  // Dm9 Bbmaj7 Gm9 A7sus4: [bass, pad]
+const MIST_KALIMBA = [7, 10, 12, 15, 17, 19, 22, 24];                             // D minor pentatonic, A4 to D6
+
+const BAYOU_ROOT = [0, 0, 5, 0, 5, 5, 7, 0];                                       // Em Em Am Em Am Am B7 Em
+const BAYOU_PAD = { 0: [3, 7, 10, 14], 5: [5, 8, 12, 15], 7: [7, 11, 14, 17] };
+const BAYOU_BASS = [0, 7, 10, 7];                                                  // one note a beat
+const BLUES = [0, 3, 5, 6, 7, 10, 12, 15, 17];
+
+const TEMPLE_CHORDS = [[0, 4, 7, 12], [1, 5, 8, 13], [5, 8, 12, 17], [0, 4, 7, 12]];   // D  Eb  Gm  D
+const TEMPLE_DRONE = [-5, 0, 0, -12];                                              // the tanpura's strings: Pa, Sa, Sa, low Sa
+const TEMPLE_DRUM = [2, 0, 1, 0, 0, 0, 1, 0, 2, 0, 0, 0, 1, 0, 0, 0];              // maqsum: 2 dum, 1 tek
+const TEMPLE_REED = [[0, 0, 4], [4, 1, 2], [6, 4, 2], [8, 5, 4], [12, 7, 4], [16, 8, 6], [22, 7, 2], [24, 5, 4], [28, 4, 4],
+  [32, 7, 4], [36, 8, 2], [38, 7, 2], [40, 5, 2], [42, 4, 2], [44, 5, 4], [48, 4, 4], [52, 1, 4], [56, 0, 8]];   // D Phrygian dominant
+const TEMPLE_SPARKLE = [12, 16, 19, 22, 24, 28, 31];                              // a D7 arpeggio, up and away
+
+const MAGMA_TAIKO = [3, 0, 0, 0, 0, 0, 2, 0, 3, 0, 0, 1, 0, 0, 0, 0];             // 3 big, 2 mid, 1 small
+const MAGMA_RIFF = [[0, 0, 3], [3, 0, 1], [4, 1, 2], [6, 0, 6], [12, 6, 2], [14, 5, 2],
+  [16, 0, 3], [19, 0, 1], [20, 1, 2], [22, 0, 6], [28, 3, 2], [30, 1, 2]];        // two bars of E Phrygian, tritone and all
+const MAGMA_CHORDS = [[0, 7, 12], [0, 7, 12], [-4, 3, 8], [1, 8, 13]];            // E5  E5  C5  F5, two bars each
+
+const FORGE_ROOTS = [0, 0, -4, -5];                                                // Am Am F E
+const FORGE_BASS = [0, 0, 12, 0, 0, 0, 10, 0, 0, 0, 12, 0, 1, 0, 3, 0];
+const FORGE_PAD = [[0, 3, 7], [0, 3, 7], [-4, 0, 3], [-5, -1, 2]];
+const FORGE_ARP = [0, 7, 12, 15, 12, 7, 15, 19];
+
+const BOSS_CHORDS = [[0, 3, 7], [0, 3, 7], [-4, 0, 3], [-2, 2, 5], [0, 3, 7], [1, 5, 8], [-4, 0, 3], [-5, -1, 2]];   // Dm Dm Bb C Dm Eb Bb A
+const BOSS_BASS = [0, 0, 12, 0, 0, 12, 0, 0, 12, 0, 0, 12, 0, 0, 12, 0];          // sixteenths, up an octave every third
+const BOSS_STABS = [[0, 5], [6, 2], [10, 3]];                                      // [step, length]
+const BOSS_HORN = [[0, 0, 4], [4, 7, 6], [10, 5, 2], [12, 3, 4], [16, 2, 2], [18, 3, 2], [20, 7, 8], [28, 12, 4],
+  [32, 15, 6], [38, 14, 2], [40, 12, 4], [44, 10, 4], [48, 14, 8], [56, 12, 4], [60, 10, 4],
+  [64, 12, 8], [72, 15, 4], [76, 17, 4], [80, 20, 8], [88, 17, 4], [92, 13, 4],
+  [96, 15, 8], [104, 12, 4], [108, 10, 4], [112, 11, 8], [120, 14, 4], [124, 7, 4]];   // eight bars, climbing to the Eb and home
+
+/* The track list, in the order the editor offers it. Each track has a name and a one-line mood for
+   the editor; its tempo (bpm, and `sub` steps a beat); how much reverb, how many steps of echo and how
+   much echo feedback it wants; how loud its distorted notes come out (`drive`); a level trim (`vol`); and
+   play(step, delay, heat, secondsPerStep), which schedules one step. Steps count from the top of the track.
+   While you're hunted it plays HUNT_PUSH faster, so durations come from secondsPerStep, never from bpm. */
+const MUSIC = {
+  jungle: {
+    name: 'Jungle Drums', mood: 'Congas, clave and marimba under the canopy, a wooden flute, birds overhead',
+    bpm: 100, sub: 4, verb: 0.35, echo: 3, fb: 0.3, vol: 1,
+    play: function (s, d, heat, spb) {
+      const D = 146.83, sp = s % 16, bar = (s >> 4) % 4, low = JUNGLE_LOW[bar];
+      shaker(sp % 4 === 2 ? 0.14 + heat * 0.08 : 0.06, d, 0.35);
+      if (CLAVE[sp]) voice({ f: 2350, vol: 0.05, dur: 0.05, d: d, pan: -0.4, wet: 0.25 });
+      const c = JUNGLE_CONGA[sp];
+      if (c === 1) drum(340, 0.08, d, { dur: 0.08, slap: 0.07, pan: 0.2 });
+      else if (c) drum(c === 2 ? 262 : 196, 0.13, d, { dur: 0.32, pan: c === 2 ? 0.2 : -0.1 });
+      // the log drum on the one and the "and" of three, pushing harder once something is after you
+      if (sp === 0 || sp === 10 || (heat > 0.3 && (sp === 7 || sp === 14))) drum(98, 0.3, d, { drop: 0.6, dur: 0.35, wet: 0.15 });
+      if (sp === 0 || sp === 10) voice({ f: semi(D / 2, low), type: 'triangle', vol: 0.2, dur: spb * 5.5, d: d });
+      if (sp === 14) voice({ f: semi(D / 2, low + 7), type: 'triangle', vol: 0.12, dur: spb * 1.8, d: d });
+      const m = JUNGLE_MARIMBA[sp];
+      if (m >= 0) mallet(semi(D * 2, m), 0.08 + heat * 0.03, d, { pan: (m - 7) / 20, echo: 0.1, wet: 0.15 });
+      // the flute takes every other turn of the four bars
+      if ((s >> 6) % 2 === 1) JUNGLE_FLUTE.forEach(function (n) { if (n[0] === s % 64) flute(semi(D * 2, n[1]), n[2] * spb, 0.055, d); });
+      // birds in the canopy, which go quiet when something big is hunting
+      if (sp === 0 && Math.random() < 0.45 * (1 - heat)) bird(d + between(0, spb * 12), between(-0.8, 0.8));
+      // hunted: war drums on every beat, and a tom run into the top of the cycle
+      if (heat > 0.55 && sp % 4 === 0) drum(70, 0.16 * heat, d, { drop: 0.55, dur: 0.6, wet: 0.3 });
+      if (heat > 0.25 && bar === 3 && sp >= 12) drum([330, 262, 220, 175][sp - 12], 0.14, d, { dur: 0.2, pan: 0.5 - (sp - 12) * 0.3 });
+    }
+  },
+  mist: {
+    name: 'Misty Ferns', mood: 'Ambient: slow pads, a kalimba wandering in the echo, wind and crickets',
+    bpm: 60, sub: 2, verb: 0.7, echo: 3, fb: 0.45, vol: 1, at: 3,
+    play: function (s, d, heat, spb) {
+      const D = 146.83, sp = s % 16, ch = MIST_CHORDS[(s >> 4) % 4];
+      if (sp === 0) {
+        voice({ f: semi(D, ch[0]), vol: 0.035, att: 2, hold: 4, dur: spb * 17, d: d });
+        voice({ f: semi(D, ch[0] + 12), type: 'triangle', vol: 0.035, att: 2, hold: 4, dur: spb * 17, d: d });
+        pad(ch[1].map(function (n) { return semi(D, n); }), 0.28, spb * 19, d, { att: 3, cut: 500, cut1: 1400 });
+      }
+      // the kalimba wanders the scale a step or two at a time, in and out of the echo
+      if (Math.random() < 0.2 + heat * 0.2) {
+        this.at = clamp(this.at + pick([-2, -1, -1, 1, 1, 2]), 0, MIST_KALIMBA.length - 1);
+        mallet(semi(D * 2, MIST_KALIMBA[this.at]), 0.1, d, { ov: 5.4, dur: 1.4, pan: between(-0.6, 0.6), echo: 0.45, wet: 0.5 });
+      }
+      if (sp === 0 && Math.random() < 0.4) gust(d + between(0, spb * 4), between(5, 9));
+      if (Math.random() < 0.18 * (1 - heat)) crickets(d + between(0, spb));
+      if (Math.random() < 0.04) drip(d);
+      if (sp === 8 && Math.random() < 0.2 * (1 - heat)) bird(d, between(-0.8, 0.8));
+      if (s % 64 === 40 && Math.random() < 0.5) farCall(d);
+      // hunted: a heartbeat that quickens, then low strings pulsing on the chord
+      if (heat > 0.15 && sp % (heat > 0.5 ? 2 : 4) === 0) {
+        drum(62, 0.26 * heat, d, { drop: 0.7, dur: 0.25 });
+        drum(58, 0.16 * heat, d + 0.22, { drop: 0.7, dur: 0.25 });
+      }
+      if (heat > 0.45) voice({ f: semi(D, ch[0] + 12), type: 'sawtooth', n: 2, det: 10, vol: 0.05 * heat, dur: spb * 0.9, cut: 700, d: d, wet: 0.3 });
+    }
+  },
+  bayou: {
+    name: 'Bayou Haze', mood: 'A slow swampy shuffle: upright bass, a dobro noodling, frogs and cicadas',
+    bpm: 76, sub: 3, verb: 0.4, echo: 2, fb: 0.25, vol: 1.12, at: 4,
+    play: function (s, d, heat, spb) {
+      const E = 164.81, sp = s % 12, bar = Math.floor(s / 12) % 8, r = BAYOU_ROOT[bar];
+      if (sp === 0) pad(BAYOU_PAD[r].map(function (n) { return semi(E, n); }), 0.1, spb * 13, d, { type: 'triangle', att: 0.8, cut: 1200, wet: 0.4 });
+      if (sp % 3 === 0) voice({ f: semi(E / 2, r + BAYOU_BASS[sp / 3]), type: 'triangle', vol: 0.2, dur: spb * 2.6, d: d });
+      if (sp === 11) voice({ f: semi(E / 2, r + 5), type: 'triangle', vol: 0.1, dur: spb, d: d });
+      // a lazy stomp-and-brush shuffle on the triplet grid
+      if (sp === 0 || sp === 6 || (heat > 0.35 && sp % 3 === 0)) kick(d, 0.45 + heat * 0.3);
+      if (sp === 3 || sp === 9) hiss({ f: 1800, q: 0.6, att: 0.015, vol: 0.05 + heat * 0.05, dur: 0.2, d: d, wet: 0.2 });
+      if (sp % 3 !== 1) shaker(sp % 3 === 0 ? 0.06 : 0.09, d, -0.3);
+      // the dobro noodles around the blues scale, sliding into some of its notes
+      if (sp % 3 !== 1 && Math.random() < 0.3) {
+        this.at = clamp(this.at + pick([-2, -1, 1, 1, 2]), 0, BLUES.length - 1);
+        pluck(semi(E, BLUES[this.at]), 0.18, between(0.6, 1.2), d, { slide: Math.random() < 0.35, pan: 0.3 });
+      }
+      // frogs and cicadas, until something big comes wading in
+      if (sp === 0 && Math.random() < 0.7 * (1 - heat)) frog(d + between(0, spb * 10), Math.random() < 0.5);
+      if (s % 48 === 0 && heat < 0.6) cicadas(d, spb * 30);
+      if (Math.random() < 0.025) bubble(d);
+      // hunted: a growl slides down onto the root
+      if (heat > 0.5 && sp === 0 && bar % 2 === 0) voice({ f: semi(E / 4, r + 1), f1: semi(E / 4, r), gl: 0.2, type: 'sawtooth', n: 2, det: 14, vol: 0.12 * heat, att: 0.1, dur: spb * 10, cut: 400, d: d });
+    }
+  },
+  temple: {
+    name: 'Sunken Temple', mood: 'Ancient magic: a droning tanpura, bells, a ritual drum, choir and a snake-charmer reed',
+    bpm: 84, sub: 4, verb: 0.6, echo: 3, fb: 0.4, vol: 1.1,
+    play: function (s, d, heat, spb) {
+      const D = 146.83, sp = s % 16, bar = (s >> 4) % 4, part = (s >> 6) % 4;
+      // the tanpura never stops: one string a beat, buzzing as it rings
+      if (sp % 4 === 0) pluck(semi(D, TEMPLE_DRONE[sp / 4]), 0.08, 3.2, d, { q: 5, wet: 0.45, pan: sp % 8 ? 0.3 : -0.3 });
+      // a temple bell opens every four bars, and a singing bowl hums under the second half
+      if (s % 64 === 0) bell(semi(D, 12), 0.05, 7, d, { wet: 0.6 });
+      if (s % 64 === 32) bowl(semi(D, 24), d);
+      // the ritual drum: just its dums when all is calm, the full maqsum and ghost notes once you're hunted
+      const k = TEMPLE_DRUM[sp];
+      if (k === 2) dum(0.2 + heat * 0.12, d);
+      else if (k === 1 && (heat > 0.2 || sp === 12)) tek(0.06 + heat * 0.05, d, 0.3);
+      else if (heat > 0.6 && sp % 2) tek(0.025, d, -0.3);
+      // the choir comes in on the second pass, the reed's tune on the third and fourth
+      if (part > 0 && sp === 0) choir(TEMPLE_CHORDS[bar].map(function (n) { return semi(D, n); }), 0.28, spb * 18, d);
+      if (part >= 2) TEMPLE_REED.forEach(function (n) { if (n[0] === s % 64) reed(semi(D * 2, n[1]), n[2] * spb, 0.05, d); });
+      // a little magic to close the cycle
+      if (part === 3 && bar === 3 && sp >= 2 && sp % 2 === 0) {
+        const i = sp / 2 - 1;
+        if (i < TEMPLE_SPARKLE.length) mallet(semi(D * 2, TEMPLE_SPARKLE[i]), 0.035, d, { ov: 5.4, dur: 1.6, echo: 0.5, wet: 0.7, pan: (i - 3) / 4 });
+      }
+      if (Math.random() < 0.02) drip(d);
+      // hunted: a war horn swells up from the low strings
+      if (heat > 0.55 && sp === 0 && bar % 2 === 0) voice({ f: D / 2, type: 'sawtooth', n: 3, det: 12, vol: 0.09 * heat, att: 0.7, hold: spb * 8, dur: spb * 26, cut: 300, cut1: 1000, d: d, wet: 0.4 });
+    }
+  },
+  magma: {
+    name: 'Magma Chamber', mood: 'Volcano: a deep rumble, taiko drums, a distorted riff, bubbling lava and steam',
+    bpm: 72, sub: 4, verb: 0.45, echo: 4, fb: 0.3, drive: 0.05, vol: 0.85,
+    play: function (s, d, heat, spb) {
+      const E = 82.41, sp = s % 16, bar = s >> 4;
+      // the mountain itself: a low roar that never quite stops, and brass-dark chords over it
+      if (s % 32 === 0) {
+        rumble(d, spb * 40);
+        pad(MAGMA_CHORDS[(bar >> 1) % 4].map(function (n) { return semi(E * 2, n); }), 0.18, spb * 36, d, { att: 1.6, cut: 350, cut1: 900, det: 12 });
+      }
+      // taiko, heavier and busier once you're hunted
+      const k = MAGMA_TAIKO[sp] || (heat > 0.35 && sp >= 14 ? 2 : 0) || (heat > 0.65 && sp % 2 === 0 ? 1 : 0);
+      if (k) taiko(k, d);
+      if (sp === 4 || sp === 12) rim(d);
+      // the riff, distorted, with a clean sub under it; it lets the drums play alone for two bars first
+      if (s >= 32) MAGMA_RIFF.forEach(function (n) {
+        if (n[0] !== s % 32) return;
+        voice({ f: semi(E, n[1]), type: 'sawtooth', n: 2, det: 6, vol: 0.4, dur: n[2] * spb, hold: n[2] * spb * 0.7, d: d, cut: 900, cut1: 300, drive: true });
+        voice({ f: semi(E / 2, n[1]), vol: 0.1, dur: n[2] * spb, hold: n[2] * spb * 0.7, d: d });
+      });
+      if (Math.random() < 0.07) bubble(d);
+      if (Math.random() < 0.3) crackle(d, spb);
+      if (sp === 8 && Math.random() < 0.3) steam(d);
+      // hunted: a tritone stab closes every other bar
+      if (heat > 0.6 && sp === 12 && bar % 2 === 1) [0, 6].forEach(function (n) {
+        voice({ f: semi(E * 4, n), type: 'sawtooth', n: 2, det: 10, vol: 0.06 * heat, att: 0.02, dur: spb * 3, cut: 2200, cut1: 600, d: d, wet: 0.4 });
+      });
+    }
+  },
+  forge: {
+    name: 'Iron Forge', mood: 'Machinery: pistons, a hammer on the anvil, clockwork, a growling bass',
+    bpm: 116, sub: 4, verb: 0.3, echo: 3, fb: 0.35, drive: 0.35, vol: 1,
+    play: function (s, d, heat, spb) {
+      const A = 55, sp = s % 16, bar = (s >> 4) % 4, r = FORGE_ROOTS[bar];
+      // a piston on every beat (every other beat while the place idles)
+      if (sp % (heat > 0.3 ? 4 : 8) === 0) kick(d, 0.6);
+      // the hammer on two and four, ringing into the echo
+      if (sp === 4 || sp === 12) anvil(d, sp === 12 ? 0.3 : -0.3);
+      if (sp === 6 || sp === 10) clunk(d);
+      if (sp === 14) hiss({ f: 6500, ft: 'highpass', att: 0.02, hold: 0.06, vol: 0.05, dur: 0.22, d: d, pan: 0.4 });
+      // clockwork ticking under it all
+      voice({ f: sp % 2 ? 2400 : 3100, vol: 0.012, dur: 0.02, d: d, pan: sp % 2 ? 0.5 : -0.5 });
+      // a resonant saw bass whose filter slowly breathes, and opens right up when you're hunted
+      const cut = 250 + 500 * (0.5 + 0.5 * Math.sin(s / 64 * Math.PI)) + heat * 700;
+      voice({ f: semi(A, r + FORGE_BASS[sp]), type: 'sawtooth', vol: 0.35, dur: spb * 0.95, d: d, cut: cut * 2, cut1: cut * 0.6, q: 7, drive: true });
+      if (sp === 0) pad(FORGE_PAD[bar].map(function (n) { return semi(A * 4, n); }), 0.1, spb * 17, d, { att: 0.3, cut: 700, wet: 0.35 });
+      // hunted: a cold arpeggio climbs in over the top
+      if (heat > 0.45) voice({ f: semi(A * 8, r + FORGE_ARP[sp % 8]), type: 'square', vol: 0.035 * heat, dur: spb * 0.8, d: d, cut: 2500, echo: 0.25, pan: sp % 2 ? 0.3 : -0.3 });
+    }
+  },
+  boss: {
+    name: 'Apex Predator', mood: 'The boss fight: pounding drums, brass stabs and a horn theme. It takes over whenever a boss has noticed you',
+    bpm: 138, sub: 4, verb: 0.35, echo: 3, fb: 0.25, drive: 0.12, vol: 0.9,
+    play: function (s, d, heat, spb) {
+      const D = 146.83, sp = s % 16, bar = (s >> 4) % 8, ch = BOSS_CHORDS[bar], r = ch[0];
+      const who = mode === 'play' && W ? activeBoss() : null;
+      // the entrance: one huge hit, a crash, and a boom falling away under it
+      if (s === 0) {
+        taiko(3, d);
+        hiss({ f: 5000, ft: 'highpass', att: 0.005, vol: 0.12, dur: 2.2, d: d, wet: 0.5 });
+        voice({ f: 120, f1: 30, gl: 1.2, vol: 0.4, dur: 1.4, d: d });
+      }
+      // the kit: kick on every beat (and between them once it's angry), backbeat snare, sixteenth hats
+      if (sp % 4 === 0 || (heat > 0.5 && (sp === 10 || sp === 14))) kick(d, 0.85);
+      if (sp === 4 || sp === 12) snare(d, 0.9);
+      hat(d, sp % 2 ? 0.45 : 0.8);
+      if (sp === 0 && bar % 2 === 0) taiko(3, d);
+      // the bass drives sixteenths, kicking up an octave every third step
+      voice({ f: semi(D / 4, r + BOSS_BASS[sp]), type: 'sawtooth', n: 2, det: 5, vol: 0.4, dur: spb * 0.9, d: d, cut: 1400, cut1: 400, q: 3, drive: true });
+      // brass stabs on the chord
+      BOSS_STABS.forEach(function (st) {
+        if (st[0] === sp) ch.forEach(function (n) {
+          voice({ f: semi(D * 2, n), type: 'sawtooth', n: 2, det: 9, vol: 0.06, att: 0.015, dur: st[1] * spb, d: d, cut: 2400, cut1: 900, wet: 0.3 });
+        });
+      });
+      // the horn takes the second eight bars, and every bar once the boss is badly hurt
+      if ((s >> 7) % 2 === 1 || heat > 0.5) BOSS_HORN.forEach(function (n) {
+        if (n[0] !== s % 128) return;
+        horn(semi(D * 2, n[1]), n[2] * spb, 0.07, d);
+        if (heat > 0.5) horn(semi(D * 4, n[1]), n[2] * spb, 0.03 * heat, d);
+      });
+      // badly hurt: the choir joins, and the drums roll into the top of each cycle
+      if (heat > 0.5 && sp === 0) choir(ch.map(function (n) { return semi(D, n); }), 0.2 * heat, spb * 15, d);
+      if (bar === 7 && sp >= 12) drum([300, 240, 190, 150][sp - 12], 0.2, d, { dur: 0.25, pan: 0.6 - (sp - 12) * 0.4 });
+      // each boss brings its own colour
+      if (who && who.type === 'carnotaurus' && sp % 4 === 3) drum(340, 0.08, d, { dur: 0.08, slap: 0.07, pan: 0.3 });
+      if (who && who.type === 'king') {
+        if (s % 64 === 0) bell(D, 0.06, 6, d, { wet: 0.6 });
+        if (sp === 0 && heat <= 0.5) choir(ch.map(function (n) { return semi(D, n); }), 0.12, spb * 15, d);
+      }
+      if (who && who.type === 'spino') {
+        if (sp === 4 || sp === 12) anvil(d, sp === 12 ? 0.3 : -0.3);
+        if (sp === 6) clunk(d);
+        if (sp === 14 && bar % 2) steam(d);
+      }
+    }
+  },
+  riff: {
+    name: 'Rex Riff', mood: 'The original stomp: a bass riff, a drum kit and a square-wave tune',
+    bpm: 124, sub: 2, verb: 0.15, echo: 3, fb: 0.2, vol: 1,
+    play: function (s, d, heat, spb) {
+      const root = 55, sp = s % 16, bar = (s >> 4) % 4, chord = PROG[bar];
+
+      // bass: the riff, rooted on this bar's chord, with an octave-low pulse per half-bar
+      const bf = root * Math.pow(2, (chord[0] + BASSLINE[sp]) / 12);
+      tone(bf, bf, spb * 0.9, 'triangle', 0.17, d, musicBus);
+      if (sp % 8 === 0) tone(bf * 0.5, bf * 0.5, spb * 3.6, 'sine', 0.13, d, musicBus);
+
+      // pad: one sustained chord a bar, sitting behind everything else
+      if (sp === 0) chord.forEach(function (iv, i) {
+        const f = root * 2 * Math.pow(2, iv / 12);
+        tone(f, f, spb * 7.4, 'triangle', 0.045 + i * 0.006, d, musicBus);
+      });
+
+      // lead: the tune, answered by a second phrase over the back half of the cycle
+      const l = (bar < 2 ? LEAD_A : LEAD_B)[sp];
+      if (l >= 0) {
+        const f = root * 4 * Math.pow(2, (l + chord[0]) / 12);
+        tone(f, f, spb * 0.55, 'square', 0.035 + heat * 0.045, d, musicBus);
+        // a hair of detune, a hair late: two oscillators sound far wider than one
+        tone(f * 1.005, f * 1.005, spb * 0.5, 'triangle', 0.02 + heat * 0.02, d + 0.012, musicBus);
+      }
+
+      // kit — the off-beat hats only join once something is after you
+      if (KICK[sp]) kick(d, 0.9);
+      if (SNARE[sp]) snare(d, 0.85);
+      if (HAT[sp] === 2) hat(d, 1);
+      else if (HAT[sp] && heat > 0.25) hat(d, 0.6);
+
+      // a tom fill rounds off the four-bar cycle
+      if (bar === 3 && sp >= 13) {
+        const f = [150, 118, 92][sp - 13];
+        tone(f, f * 0.55, 0.16, 'sine', 0.26, d, musicBus);
+        noiseHit(0.07, 0.10, 900, d, 'bandpass', musicBus);
+      }
+
+      // when the floor really is after you, a fifth drones underneath
+      if (heat > 0.55 && sp % 4 === 0) {
+        const f = root * 0.5 * Math.pow(2, (chord[0] + 7) / 12);
+        tone(f, f, spb * 3.6, 'sawtooth', 0.012 + 0.03 * (heat - 0.55), d, musicBus);
+      }
+    }
+  },
+  none: {
+    name: 'Silence', mood: 'No music: just the dinos, and your own footsteps',
+    bpm: 60, sub: 1, verb: 0, echo: 1, fb: 0, vol: 1,
+    play: function () { }
+  }
+};
+
+function trackOk(id) { return typeof id === 'string' && Object.prototype.hasOwnProperty.call(MUSIC, id); }
 
 function kick(delay, vol) {
   tone(132, 38, 0.17, 'sine', 0.52 * vol, delay, musicBus);
@@ -3045,58 +3643,248 @@ function hat(delay, vol) {
   noiseHit(0.035, 0.075 * vol, 9000, delay, 'highpass', musicBus);
 }
 
+/* Which track should be playing: the floor's own in a game, the one being previewed in the editor. */
+function wantedTrack() {
+  if (mode === 'play' && W) {
+    if (activeBoss()) return 'boss';                // a boss that has noticed you brings its own theme
+    if (W.time < W.bossQuiet) return null;          // and when it falls, a moment's quiet before the floor's comes back
+    return W.def.music;
+  }
+  if (mode === 'editor') return edListen;
+  return null;
+}
+
+/* The boss that has noticed you, if there is one: it gets a health bar, and the boss theme. */
+function activeBoss() {
+  return W.things.find(function (t) { return t.kind === 'dino' && t.isBoss && t.alive && t.state !== 'sleep' && t.state !== 'poof'; }) || null;
+}
+
+/* How hard the boss theme plays: it builds as the boss weakens, and goes all out once the spinosaurus overheats. */
+function bossFury(b) { return b.overheat ? 1 : clamp((0.8 - b.hp / b.maxhp) / 0.4, 0, 1); }
+
+/* The editor preview has no dinos to heat it up, so it plays calm for twenty seconds, then hunted for a while. */
+function previewHeat() {
+  const c = (AC.currentTime - edListenAt) % 48;
+  return clamp((c - 20) / 6, 0, 1) * clamp((48 - c) / 4, 0, 1);
+}
+
 function musicTick() {
-  if (!AC || !SET.music || mode !== 'play') return;
-  const bpm = 124, spb = 60 / bpm / 2;          // one step is an eighth note
+  if (!AC || musicMuted()) return;
+  const id = wantedTrack();
+  if (!trackOk(id)) return;
+  const T = MUSIC[id], now = AC.currentTime;
+  if (id !== musicTrack) {
+    // a new track starts from the top, at its own tempo, after a quick duck under whatever the last one left ringing
+    musicTrack = id; step = 0; nextNote = now + 0.25;
+    musicBpm = T.bpm; musicPushed = false;
+    musicBus.gain.cancelScheduledValues(now);
+    musicBus.gain.setTargetAtTime(0, now, 0.04);
+    musicBus.gain.setTargetAtTime(0.7 * T.vol, now + 0.18, 0.02);
+    verbOut.gain.setTargetAtTime(T.verb, now, 0.05);
+    echoIn.delayTime.setValueAtTime(T.echo * 60 / T.bpm / T.sub, now + 0.18);
+    echoFb.gain.setTargetAtTime(T.fb, now + 0.18, 0.02);
+    echoLines[1 - echoAt].fb.gain.setTargetAtTime(0, now, 0.02);
+    driveOut.gain.setTargetAtTime(T.drive || 0, now + 0.18, 0.02);
+  }
   // After a pause or a hidden tab the clock has run on; skip the missed beats instead of scheduling them all at once.
-  if (nextNote < AC.currentTime) nextNote = AC.currentTime + 0.05;
-  const root = MUSIC_ROOTS[curLevel % MUSIC_ROOTS.length];
-  while (nextNote < AC.currentTime + 0.3) {
-    const d = nextNote - AC.currentTime;
-    const sp = step % 16, bar = (step >> 4) % 4, chord = PROG[bar];
-    const heat = musicHeat;
-
-    // bass: the riff, rooted on this bar's chord, with an octave-low pulse per half-bar
-    const bf = root * Math.pow(2, (chord[0] + BASSLINE[sp]) / 12);
-    tone(bf, bf, spb * 0.9, 'triangle', 0.17, d, musicBus);
-    if (sp % 8 === 0) tone(bf * 0.5, bf * 0.5, spb * 3.6, 'sine', 0.13, d, musicBus);
-
-    // pad: one sustained chord a bar, sitting behind everything else
-    if (sp === 0) chord.forEach(function (iv, i) {
-      const f = root * 2 * Math.pow(2, iv / 12);
-      tone(f, f, spb * 7.4, 'triangle', 0.045 + i * 0.006, d, musicBus);
-    });
-
-    // lead: the tune, answered by a second phrase over the back half of the cycle
-    const l = (bar < 2 ? LEAD_A : LEAD_B)[sp];
-    if (l >= 0) {
-      const f = root * 4 * Math.pow(2, (l + chord[0]) / 12);
-      tone(f, f, spb * 0.55, 'square', 0.035 + heat * 0.045, d, musicBus);
-      // a hair of detune, a hair late: two oscillators sound far wider than one
-      tone(f * 1.005, f * 1.005, spb * 0.5, 'triangle', 0.02 + heat * 0.02, d + 0.012, musicBus);
+  if (nextNote < now) nextNote = now + 0.05;
+  const boss = id === 'boss' && mode === 'play' ? activeBoss() : null;
+  const heat = mode === 'editor' ? previewHeat() : boss ? bossFury(boss) : musicHeat;
+  while (nextNote < now + 0.3) {
+    // The tempo only moves on a bar line: up a little once the hunt is properly on, back once you're clear.
+    // The gap between those two marks keeps it from flipping back and forth on the edge.
+    if (step % (4 * T.sub) === 0) {
+      if (!musicPushed && heat > 0.6) musicPushed = true;
+      else if (musicPushed && heat < 0.3) musicPushed = false;
+      const bpm = T.bpm * (musicPushed ? HUNT_PUSH : 1);
+      if (bpm !== musicBpm) { musicBpm = bpm; retime(T, 60 / bpm / T.sub, nextNote); }
     }
-
-    // kit — the off-beat hats only join once something is after you
-    if (KICK[sp]) kick(d, 0.9);
-    if (SNARE[sp]) snare(d, 0.85);
-    if (HAT[sp] === 2) hat(d, 1);
-    else if (HAT[sp] && heat > 0.25) hat(d, 0.6);
-
-    // a tom fill rounds off the four-bar cycle
-    if (bar === 3 && sp >= 13) {
-      const f = [150, 118, 92][sp - 13];
-      tone(f, f * 0.55, 0.16, 'sine', 0.26, d, musicBus);
-      noiseHit(0.07, 0.10, 900, d, 'bandpass', musicBus);
-    }
-
-    // when the floor really is after you, a fifth drones underneath
-    if (heat > 0.55 && sp % 4 === 0) {
-      const f = root * 0.5 * Math.pow(2, (chord[0] + 7) / 12);
-      tone(f, f, spb * 3.6, 'sawtooth', 0.012 + 0.03 * (heat - 0.55), d, musicBus);
-    }
-
+    const spb = 60 / musicBpm / T.sub;
+    T.play(step, nextNote - now, heat, spb);
     nextNote += spb; step++;
   }
+}
+
+/* Fade the music out now (the editor's Stop), so the next track starts clean. */
+function musicHush() {
+  if (!AC) return;
+  musicTrack = null;
+  musicBus.gain.cancelScheduledValues(AC.currentTime);
+  musicBus.gain.setTargetAtTime(0, AC.currentTime, 0.15);
+}
+
+/* ---- ambience -----------------------------------------------------------
+   Sounds that belong to the tiles, so a floor gets them just by being painted: lava walls
+   roar and bubble, iron plating hums and clanks, mud walls gurgle, trees and vine walls
+   rustle, gold walls ring faintly, and a water floor laps all round you. Each kind is one
+   looping bed whose loudness and place in the stereo field follow that kind's tiles near
+   you, plus one-off sounds (a bubble, a clank, a frog) from the same direction. A wall in
+   between muffles them. These are sound effects: they go to sfxBus, through `ambBus`. */
+let ambBus = null, bedNoise = null, ambOn = false, ambClock = 0;
+const AMB_RANGE = 8;                      // tiles: further than this, a tile is silent
+
+function ambRig() {
+  ambBus = AC.createGain(); ambBus.gain.value = 0; ambBus.connect(sfxBus);
+  // the beds run for minutes, so their noise is longer than the effects' (a short loop would be heard repeating)
+  const n = Math.floor(AC.sampleRate * 4.3);
+  bedNoise = AC.createBuffer(1, n, AC.sampleRate);
+  const d = bedNoise.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+}
+
+// a bed's sources: filtered noise, or a held tone, either one optionally swelling with a slow `am` [rate, depth]
+function bedNoiseSrc(into, stops, type, f, q, vol, am) {
+  const s = AC.createBufferSource(); s.buffer = bedNoise; s.loop = true;
+  const fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  const g = bedSwell(vol, am, stops);
+  s.connect(fl); fl.connect(g); g.connect(into);
+  s.start(AC.currentTime, Math.random() * 4); stops.push(s);
+}
+function bedTone(into, stops, f, type, vol, am) {
+  const o = AC.createOscillator(); o.type = type; o.frequency.value = f;
+  const g = bedSwell(vol, am, stops);
+  o.connect(g); g.connect(into);
+  o.start(); stops.push(o);
+}
+function bedSwell(vol, am, stops) {
+  const g = AC.createGain(); g.gain.value = am ? vol * (1 - am[1]) : vol;
+  if (am) {
+    const l = AC.createOscillator(), lg = AC.createGain();
+    l.frequency.value = am[0]; lg.gain.value = vol * am[1];
+    l.connect(lg); lg.connect(g.gain); l.start(); stops.push(l);
+  }
+  return g;
+}
+
+// one-off sounds only the tiles make (the rest are the music's own, borrowed through fromTile)
+function glug(d) {                          // mud letting go of a big slow bubble
+  voice({ f: 55, f1: 150, gl: 0.18, vol: 0.14, dur: 0.24, d: d, cut: 600 });
+  hiss({ f: 400, q: 2, vol: 0.05, att: 0.01, dur: 0.08, d: d + 0.16 });
+}
+function rustle(d) { hiss({ f: between(2600, 4200), q: 0.7, att: 0.08, hold: 0.12, vol: 0.07, dur: 0.7, d: d }); }
+
+/* The kinds: which tiles; how loud the bed gets right up against them (`vol`) and how loud the one-off sounds
+   are (`pop`); the bed; and the one-off sounds as [how many a second up close, sound]. At full strength each
+   bed sits a few dB under the music, so a floor painted wall to wall with one kind never drowns it out. */
+const AMBIENCE = {
+  lava: { tiles: [4], vol: 0.3, pop: 1.8,
+    bed: function (o, st) { bedNoiseSrc(o, st, 'lowpass', 200, 0.7, 1, [0.13, 0.35]); bedNoiseSrc(o, st, 'bandpass', 2600, 0.6, 0.1); },
+    pops: [[2.2, function () { bubble(0); }], [3, function () { crackle(0, 0.3); }], [0.2, function () { steam(0); }]] },
+  iron: { tiles: [11], vol: 0.2, pop: 1.2,
+    bed: function (o, st) { bedTone(o, st, 55, 'sawtooth', 0.25, [0.4, 0.3]); bedTone(o, st, 110.6, 'sawtooth', 0.12); bedNoiseSrc(o, st, 'bandpass', 900, 2, 0.15); },
+    pops: [[0.3, function () { clunk(0); }], [0.12, function () { steam(0); }], [0.08, function () { anvil(0, 0); }]] },
+  mud: { tiles: [10], vol: 0.28, pop: 1.2,
+    bed: function (o, st) { bedNoiseSrc(o, st, 'lowpass', 380, 1, 1, [0.25, 0.6]); },
+    pops: [[0.7, function () { glug(0); }], [0.15, function () { frog(0, Math.random() < 0.6); }]] },
+  leaves: { tiles: [2], trees: true, vol: 0.055, pop: 0.8,
+    bed: function (o, st) { bedNoiseSrc(o, st, 'bandpass', 2800, 0.5, 1, [0.11, 0.7]); },
+    pops: [[0.35, function () { rustle(0); }], [0.25, function () { crickets(0); }]] },
+  gold: { tiles: [5], vol: 0.25, pop: 1,
+    bed: function (o, st) { [1174.7, 1760, 2349.3].forEach(function (f, i) { bedTone(o, st, f, 'sine', 0.05, [0.13 + i * 0.07, 0.8]); }); },
+    pops: [[0.1, function () { bell(2349.3, 0.03, 3, 0); }]] },
+  // not a tile but the whole floor: it laps all round you, wherever you stand
+  water: { floor: 'water', vol: 0.16, pop: 2,
+    bed: function (o, st) { bedNoiseSrc(o, st, 'lowpass', 650, 0.7, 1, [0.21, 0.7]); bedNoiseSrc(o, st, 'bandpass', 1400, 1, 0.25, [0.33, 0.8]); },
+    pops: [[0.5, function () { drip(0); }]] }
+};
+
+/* Find each kind's sources on a new floor: the walls of that kind you can stand next to, and its trees. */
+function ambStart(w) {
+  const open = function (x, y) {
+    if (x < 0 || y < 0 || x >= MW || y >= MH) return false;
+    const t = w.tiles[y * MW + x];
+    return t === 0 || t === 6 || t === 7;
+  };
+  w.amb = [];
+  for (const name in AMBIENCE) {
+    const K = AMBIENCE[name];
+    if (K.floor) { if (w.def.floor === K.floor) w.amb.push({ K: K, pts: null, bed: null }); continue; }
+    const pts = [];
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      if (K.tiles.indexOf(w.tiles[y * MW + x]) < 0) continue;
+      if (open(x + 1, y) || open(x - 1, y) || open(x, y + 1) || open(x, y - 1)) pts.push({ x: x + 0.5, y: y + 0.5, h: 0.5 });
+    }
+    if (K.trees) w.things.forEach(function (t) { if (t.kind === 'tree') pts.push({ x: t.x, y: t.y, h: 0.35 }); });
+    if (pts.length) w.amb.push({ K: K, pts: pts, bed: null });
+  }
+}
+
+function ambStop() {
+  if (!W || !W.amb) return;
+  W.amb.forEach(function (a) {
+    if (!a.bed) return;
+    a.bed.stops.forEach(function (s) { try { s.stop(); } catch (e) { } });
+    a.bed.out.disconnect();
+  });
+  W.amb = null;
+}
+
+// a kind's bed: its sources into a muffling filter, a level and a stereo position
+function ambBed(K) {
+  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8000;
+  const g = AC.createGain(); g.gain.value = 0;
+  lp.connect(g);
+  const pan = AC.createStereoPanner ? AC.createStereoPanner() : null;
+  if (pan) g.connect(pan);
+  const out = pan || g;
+  out.connect(ambBus);
+  const stops = [];
+  K.bed(lp, stops);
+  return { lp: lp, g: g, pan: pan, out: out, stops: stops };
+}
+
+/* Walls only: a tree or a dino between you and the lava doesn't muffle it. */
+function wallsClear(x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0, steps = Math.ceil(Math.hypot(dx, dy) * 4);
+  for (let i = 1; i < steps; i++) if (solidAt(x0 + dx * i / steps, y0 + dy * i / steps)) return false;
+  return true;
+}
+
+/* How loud a kind is where you stand (0 to 1), where it sits left to right, and how much of it you can see.
+   Every tile adds to the loudness, falling off with distance, so a lava corridor is louder than one lava wall,
+   and that louder than lava across the room. The direction leans hard on the nearest tiles: on a floor walled
+   all round with lava, the wall beside you is the one you hear it from. */
+function ambHear(a) {
+  if (!a.pts) return { level: 1, pan: 0, clear: 1 };
+  let sum = 0, seen = 0, near = 0, vx = 0, vy = 0;
+  for (let i = 0; i < a.pts.length; i++) {
+    const p = a.pts[i];
+    // the nearest point of the tile, not its middle: standing against a wall puts you right next to it
+    const nx = clamp(P.x, p.x - p.h, p.x + p.h), ny = clamp(P.y, p.y - p.h, p.y + p.h);
+    const dx = nx - P.x, dy = ny - P.y, dist = Math.hypot(dx, dy);
+    if (dist >= AMB_RANGE) continue;
+    let wgt = 1 / (1 + dist * dist / 2.25);
+    if (dist < 0.8 || wallsClear(P.x, P.y, nx, ny)) seen += wgt; else wgt *= 0.35;
+    sum += wgt;
+    if (dist > 0.01) { const w2 = wgt * wgt; near += w2; vx += dx / dist * w2; vy += dy / dist * w2; }
+  }
+  if (!sum) return { level: 0, pan: 0, clear: 1 };
+  // the camera plane points to the right of the screen; tiles on every side cancel out to the middle
+  const vl = Math.hypot(vx, vy), pl = Math.hypot(P.planeX, P.planeY) || 1;
+  const side = vl > 1e-6 ? (vx * P.planeX + vy * P.planeY) / (vl * pl) : 0;
+  return { level: sum / (sum + 2), pan: clamp(side * (near ? vl / near : 0), -1, 1) * 0.85, clear: seen / sum };
+}
+
+function ambTick(dt) {
+  if (!AC || !ambBus) return;
+  const on = mode === 'play' && SET.sfx && !!(W && W.amb);
+  if (on !== ambOn) { ambOn = on; ambBus.gain.setTargetAtTime(on ? 1 : 0, AC.currentTime, 0.12); }
+  if (!on) return;
+  ambClock += dt;
+  if (ambClock < 0.1) return;              // ten times a second is plenty for walking pace
+  const span = ambClock; ambClock = 0;
+  const now = AC.currentTime;
+  W.amb.forEach(function (a) {
+    if (!a.bed) a.bed = ambBed(a.K);
+    const h = ambHear(a);
+    a.bed.g.gain.setTargetAtTime(h.level * a.K.vol, now, 0.25);
+    if (a.bed.pan) a.bed.pan.pan.setTargetAtTime(h.pan, now, 0.25);
+    a.bed.lp.frequency.setTargetAtTime(700 + 7300 * h.clear * h.clear, now, 0.25);
+    a.heard = h;
+    a.K.pops.forEach(function (pp) {
+      if (Math.random() < pp[0] * span * h.level) fromTile({ gain: h.level * (0.5 + 0.5 * h.clear) * a.K.pop, pan: h.pan }, pp[1]);
+    });
+  });
 }
 
 /* ------------------------------------------------------------- messages */
@@ -3325,6 +4113,7 @@ function hideOverlay() {
 
 function titleScreen() {
   mode = 'title';
+  ambStop();
   const best = SET.best ? '<p class="best">Best score so far: ' + SET.best + '</p>' : '';
   overlay('Rex Rumble', 'Six floors of trouble. One very short pair of arms.',
     '<div class="how">' +
@@ -3363,7 +4152,11 @@ function loadLevel(i, retry) {
   else { floorStartScore = totalScore; floorStartRoars = P.roars; }
   lockHinted = false; edEditedRunning = false;
   curLevel = i;
+  musicTrack = null;                              // every floor starts its music from the top, a retry too
+  musicHeat = 0;                                  // and calm: the last floor's fight doesn't follow you down the stairs
+  ambStop();
   W = buildLevel(i);
+  ambStart(W);
   P.x = W.spawn.x; P.y = W.spawn.y;
   P.ang = 0; P.hp = P.maxhp = SET.easy ? 130 : 100;
   P.keys = 0; P.atk = null; P.invT = 0; P.pitch = 0; P.lookPitch = 0;
@@ -3392,6 +4185,7 @@ function pause() {
   overlay('Paused', 'Catch your breath.', '<div class="how"><p>Eggs found: ' + W.eggs + ' of ' + W.eggsTotal +
     '</p><p>Dinos scared off: ' + W.scared + '</p>' +
     (W.goalMet ? '' : '<p><b>Exit:</b> ' + GOAL_TEXT[W.goal].replace(' to open the exit.', '') + ' to open it.</p>') +
+    (trackOk(W.def.music) ? '<p><b>Music:</b> ' + MUSIC[W.def.music].name + '</p>' : '') +
     (edEditedRunning ? '<p><b>You edited this floor.</b> The changes appear when you restart it.</p>' : '') + '</div>', [
     { label: 'Keep stomping', go: resume },
     { label: 'Restart this floor', ghost: true, go: function () { loadLevel(curLevel, true); } },
@@ -3564,6 +4358,7 @@ function scareOff(t) {
   say(t.type === 'spino' ? 'The Robo-Spinosaurus sputters and shuts down!' : t.def.name + ' ran off!');
   P.roarMeter = 0;
   if (t.isBoss) say(t.type === 'king' ? 'The Bone King is gone!' : t.type === 'spino' ? 'The forge falls quiet.' : 'The Carnotaurus fell!', true);
+  if (t.isBoss && !activeBoss()) W.bossQuiet = W.time + 3;
   // on a "boss drops key" floor, the last boss standing carries the bone key
   if (t.isBoss && W.bossKey && !W.things.some(function (o) { return o.kind === 'dino' && o.isBoss && o.alive && o.state !== 'poof'; })) {
     spawnItem(W, 'key', t.x, t.y);
@@ -4466,7 +5261,7 @@ function drawHUD() {
   c.fillText(W.def.name, 240, 16);
 
   // a boss's health, once it has noticed you
-  const boss = W.things.find(function (t) { return t.kind === 'dino' && t.isBoss && t.alive && t.state !== 'sleep' && t.state !== 'poof'; });
+  const boss = activeBoss();
   if (boss) {
     const bw = 170, bx = 240 - bw / 2, by = 27, f = clamp(boss.hp / boss.maxhp, 0, 1);
     c.fillStyle = 'rgba(10,22,17,0.72)'; c.fillRect(bx - 2, by - 2, bw + 4, 10);
@@ -4551,7 +5346,8 @@ function frame(ts) {
     update(dt);
     musicTick();
     frozen = false;
-  }
+  } else if (mode === 'editor' && edListen) musicTick();     // the editor's Listen button
+  ambTick(dt);                                               // fades itself out when you aren't playing
   // Behind pause / clear / game-over the scene doesn't change and the menu covers it, so draw it once, not every
   // frame (saves battery, mostly on tablets and phones).
   const stillFrame = (mode === 'paused' || mode === 'clear' || mode === 'dead') && !frozen;
@@ -4769,6 +5565,22 @@ function initEditorUI() {
     LEVELS[edFloorIdx].ceil = this.value;
   });
 
+  // the track list comes from MUSIC itself, so a new track shows up here with nothing else to change
+  const musSel = document.getElementById('edMusic');
+  Object.keys(MUSIC).forEach(function (id) {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = '♪ ' + MUSIC[id].name; opt.title = MUSIC[id].mood;
+    musSel.appendChild(opt);
+  });
+  musSel.addEventListener('change', function () {
+    LEVELS[edFloorIdx].music = this.value;
+    if (edListen) edListenTo(this.value);          // keep listening, to the new pick
+    else edNote('♪ ' + MUSIC[this.value].name + ': ' + MUSIC[this.value].mood);
+  });
+  document.getElementById('edBtnListen').addEventListener('click', function () {
+    edListenTo(edListen ? null : LEVELS[edFloorIdx].music);
+  });
+
   document.getElementById('edBossKey').addEventListener('change', function () {
     LEVELS[edFloorIdx].bossKey = this.checked;
     renderEditorGrid();                // it changes whether the key gates can be opened
@@ -4872,6 +5684,7 @@ function openLevelEditor(floorIdx) {
 }
 
 function closeLevelEditor() {
+  edListenTo(null);
   saveCurrentEditorFloor();
   saveCustomLevelsToStorage();
   closeModal();
@@ -4898,10 +5711,24 @@ function loadFloorToEditor(floorIdx) {
   document.getElementById('edCeilTex').value = lvl.ceil || 'canopy';
   document.getElementById('edGoal').value = goalOf(lvl);
   document.getElementById('edBossKey').checked = !!lvl.bossKey;
+  document.getElementById('edMusic').value = lvl.music;
+  if (edListen) edListenTo(lvl.music);            // listening follows you to another floor
   const ch = lvl.ceilH || 1.35;
   document.getElementById('edCeilH').value = ch;
   document.getElementById('edCeilVal').textContent = ch.toFixed(2) + 'x';
   renderEditorGrid();
+}
+
+/* The editor's Listen button: music is a choice like the textures, so a designer can hear it without a playtest. */
+function edListenTo(id) {
+  if (id) {
+    audioStart();
+    if (!AC) { edNote('This browser has no Web Audio, so there is no music to hear.'); return; }
+    if (id !== edListen) edListenAt = AC.currentTime;
+    edNote('♪ ' + MUSIC[id].name + ': ' + MUSIC[id].mood + '. After 20 s it plays the way it does when dinos hunt you.');
+  } else if (edListen) musicHush();
+  edListen = id || null;
+  document.getElementById('edBtnListen').textContent = edListen ? '■ Stop' : '♪ Listen';
 }
 
 function saveCurrentEditorFloor() {
@@ -4912,6 +5739,8 @@ function saveCurrentEditorFloor() {
   const f = document.getElementById('edFloorTex').value, c = document.getElementById('edCeilTex').value;
   lvl.floor = FLOOR_TEXS.indexOf(f) >= 0 ? f : lvl.floor;
   lvl.ceil = CEIL_TEXS.indexOf(c) >= 0 ? c : lvl.ceil;
+  const m = document.getElementById('edMusic').value;
+  if (trackOk(m)) lvl.music = m;
   lvl.ceilH = clamp(parseFloat(document.getElementById('edCeilH').value) || 1.35, 1, 4);
 }
 
@@ -5207,8 +6036,9 @@ function playtestEditorFloor() {
   }
   document.getElementById('editorOverlay').classList.add('hide');
   tellHostEditor(false);
+  edListenTo(null);
   audioStart();
-  playtesting = true;                 // a test run: own score, and it never counts toward the best score
+  playtesting = true;                // a test run: own score, and it never counts toward the best score
   totalScore = 0; P.eggs = 0; P.roars = 1;
   loadLevel(edFloorIdx);
 }
@@ -5222,7 +6052,7 @@ function exportEditorMap() {
   const lvl = LEVELS[edFloorIdx];
   // Real JSON, so Import can read it straight back (it is also a valid JS object literal for pasting into LEVELS)
   const out = JSON.stringify({
-    name: lvl.name, ceilH: lvl.ceilH, sub: lvl.sub || '', floor: lvl.floor, ceil: lvl.ceil,
+    name: lvl.name, ceilH: lvl.ceilH, sub: lvl.sub || '', floor: lvl.floor, ceil: lvl.ceil, music: lvl.music,
     goal: goalOf(lvl), boss: goalOf(lvl) === 'boss',   // `boss` so older copies of the game still lock the exit
     bossKey: !!lvl.bossKey, grid: lvl.grid
   }, null, 2);
@@ -5276,6 +6106,8 @@ function applyImportedMap() {
       document.getElementById('edName').value = c.name;
       document.getElementById('edFloorTex').value = c.floor;
       document.getElementById('edCeilTex').value = c.ceil;
+      document.getElementById('edMusic').value = c.music;
+      if (edListen) edListenTo(c.music);
       document.getElementById('edCeilH').value = c.ceilH;
       document.getElementById('edCeilVal').textContent = c.ceilH.toFixed(2) + 'x';
       LEVELS[edFloorIdx].goal = c.goal; delete LEVELS[edFloorIdx].boss; LEVELS[edFloorIdx].sub = c.sub;

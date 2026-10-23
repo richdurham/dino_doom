@@ -3,7 +3,7 @@
  * Pre-merge checks for Rex Rumble. No dependencies — `node tools/check.js`.
  *
  * The game is one self-contained HTML file with no build step, so nothing catches a typo
- * or a broken floor until someone opens it. These four checks do:
+ * or a broken floor until someone opens it. These checks do:
  *
  *   1. syntax  — every inline <script> parses
  *   2. boot    — the game starts headlessly, which exercises the whole art bakery,
@@ -13,6 +13,9 @@
  *   4. palette — no two editor swatches are perceptually indistinguishable
  *   5. goals   — a floor's exit footprint stays hidden until its goal is met, then appears
  *   6. smoke   — every floor survives a burst of play with all the dinos awake
+ *   7. music   — every floor names a real track, every track plays without a bad note,
+ *                and a boss brings in its theme
+ *   8. ambience — every floor's tiles make their own sounds, louder up close, on the right side
  *
  * The level check calls getEditorValidation() rather than reimplementing its rules, so it
  * cannot drift from what the in-game editor tells a player.
@@ -242,6 +245,137 @@ console.log('\nsyntax');
       return { bad: null };
     })())`));
     check('floor ' + i + ' "' + name + '" plays and renders', !r.bad, r.bad);
+  }
+
+  /* ----------------------------------------------------------------- 7. music */
+  /* Every floor names a real track, and every track plays a minute calm and a minute hunted
+     through the stub Web Audio, which throws on a NaN pitch or a ramp to zero as a browser
+     does. A track scheduling hundreds of notes a second has a runaway loop in it. */
+  console.log('\nmusic');
+  const tracks = JSON.parse(ev('JSON.stringify(Object.keys(MUSIC))'));
+  for (let i = 0; i < count; i++) {
+    const m = ev('LEVELS[' + i + '].music');
+    check('floor ' + i + ' "' + ev('LEVELS[' + i + '].name') + '" plays a real track', tracks.indexOf(m) >= 0, 'music = ' + m);
+  }
+  check('an import naming an unknown track keeps the floor\'s own',
+    ev("cleanLevel(Object.assign({}, LEVELS[0], { music: 'polka' }), LEVELS[0]).music") === ev('LEVELS[0].music'));
+  tracks.forEach(function (id) {
+    const r = JSON.parse(ev(`JSON.stringify((function () {
+      var T = MUSIC[${JSON.stringify(id)}], spb = 60 / T.bpm / T.sub, out = {};
+      try {
+        [0, 1].forEach(function (heat) {
+          var before = AC.log.length;
+          for (var s = 0; s * spb < 60; s++) { AC.currentTime = s * spb; T.play(s, 0.05, heat, spb); }
+          out[heat] = (AC.log.length - before) / 60;
+        });
+      } catch (e) { return { bad: e.message }; }
+      finally { AC.currentTime = 0; }
+      return { calm: out[0], hunted: out[1] };
+    })())`));
+    const silent = id === 'none';
+    check('"' + id + '" plays calm and hunted' + (r.bad ? '' : ' (' + r.calm.toFixed(0) + ' and ' + r.hunted.toFixed(0) + ' notes a second)'),
+      !r.bad && (silent || r.calm > 1) && r.hunted < 200, r.bad || 'calm ' + r.calm + ', hunted ' + r.hunted + ' notes a second');
+  });
+  const sch = JSON.parse(ev(`JSON.stringify((function () {
+    loadLevel(3, true); mode = 'play'; SET.music = true;
+    AC.currentTime = 100; musicTick();
+    var track = musicTrack, n = AC.log.length;
+    SET.music = false; AC.currentTime = 101; musicTick();
+    var whileOff = AC.log.length - n;
+    mode = 'editor'; edListenTo('temple'); AC.currentTime = 102; musicTick();
+    var preview = musicTrack, previewNotes = AC.log.length - n - whileOff;
+    edListenTo(null); SET.music = true; mode = 'play';
+    return { track: track, want: LEVELS[3].music, whileOff: whileOff, preview: preview, previewNotes: previewNotes };
+  })())`));
+  check('a floor plays its own track', sch.track === sch.want, 'playing ' + sch.track + ', floor wants ' + sch.want);
+  check('nothing new is scheduled with the music off', sch.whileOff === 0, sch.whileOff + ' notes');
+  check('the editor\'s Listen plays the picked track, even with the music off', sch.preview === 'temple' && sch.previewNotes > 0,
+    'playing ' + sch.preview + ', ' + sch.previewNotes + ' notes');
+  const bt = JSON.parse(ev(`JSON.stringify((function () {
+    loadLevel(4, true); mode = 'play'; P.invT = 1e9;
+    AC.currentTime = 200; musicTick(); var floor = musicTrack;
+    var boss = W.things.find(function (t) { return t.isBoss; });
+    boss.state = 'chase'; AC.currentTime = 201; musicTick(); var fight = musicTrack;
+    scareOff(boss); var quiet = wantedTrack();
+    W.time = W.bossQuiet + 0.1; AC.currentTime = 202; musicTick();
+    return { want: LEVELS[4].music, floor: floor, fight: fight, quiet: quiet, back: musicTrack };
+  })())`));
+  /* A hunt pushes the tempo up, but only on a bar line, and onto the spare echo line (retiming an echo
+     that is ringing makes it warble). Between the two marks it holds, so it can't flutter. */
+  const tp = JSON.parse(ev(`JSON.stringify((function () {
+    loadLevel(0, true); mode = 'play';
+    var T = MUSIC[W.def.music], bar = 4 * T.sub, at = [], log = [], orig = retime, phase = '';
+    retime = function (T, spb, when) { at.push(step); log.push(phase + ': step ' + step + ' to ' + (60 / spb / T.sub).toFixed(1) + ' bpm'); orig(T, spb, when); };
+    var stretch = function (heat, secs) { phase = 'heat ' + heat; musicHeat = heat; for (var i = 0; i < secs * 60; i++) { AC.currentTime += 1 / 60; musicTick(); } };
+    var fresh = musicHeat;                 // a new floor starts calm, whatever the last one was doing
+    AC.currentTime = 300; musicTick();
+    stretch(0, 8); var calm = musicBpm, line = echoIn;
+    stretch(1, 8); var hunted = musicBpm, moved = echoIn !== line, upAt = at.slice();
+    stretch(0.45, 8); var between = musicBpm;
+    stretch(0, 8); var after = musicBpm;
+    retime = orig; musicHeat = 0;
+    return { fresh: fresh, base: T.bpm, push: HUNT_PUSH, calm: calm, hunted: hunted, moved: moved, between: between, after: after,
+      changes: at.length, offBar: at.filter(function (s) { return s % bar; }).length, upChanges: upAt.length, log: log.join(', ') };
+  })())`));
+  check('a hunt speeds the music up ' + Math.round((tp.push - 1) * 100) + '%, on a bar line, onto the spare echo',
+    tp.fresh === 0 && tp.calm === tp.base && tp.upChanges === 1 && Math.abs(tp.hunted - tp.base * tp.push) < 1e-9 && tp.moved && tp.offBar === 0,
+    'heat on arrival ' + tp.fresh + ', bpm calm ' + tp.calm + ', hunted ' + tp.hunted + ', echo moved: ' + tp.moved + '; changes: ' + tp.log);
+  check('it holds while the hunt is in two minds, and slows back down once you\'re clear',
+    tp.between === tp.hunted && tp.after === tp.base && tp.changes === 2 && tp.offBar === 0,
+    'bpm half-hunted ' + tp.between + ', clear ' + tp.after + '; changes: ' + tp.log);
+  check('a boss that notices you brings in the boss theme', bt.floor === bt.want && bt.fight === 'boss',
+    'before: ' + bt.floor + ', once it noticed you: ' + bt.fight);
+  check('when the boss falls, a moment\'s quiet, then the floor\'s own music', bt.quiet === null && bt.back === bt.want,
+    'right after: ' + bt.quiet + ', then: ' + bt.back);
+
+  /* -------------------------------------------------------------- 8. ambience */
+  /* The tiles make their own sounds. Every shipped floor should make some, each kind should be louder up
+     close than far off, it should swap sides when you turn round, and it should stop when you pause. */
+  console.log('\nambience');
+  for (let i = 0; i < count; i++) {
+    const a = JSON.parse(ev(`JSON.stringify((function () {
+      loadLevel(${i}, true); mode = 'play'; P.invT = 1e9;
+      W.things.forEach(function (t) { if (t.kind === 'dino') t.state = 'sleep'; });
+      var face = function (ang) { P.ang = ang; P.dirX = Math.cos(ang); P.dirY = Math.sin(ang); P.planeX = -P.dirY * FOV; P.planeY = P.dirX * FOV; };
+      var names = Object.keys(AMBIENCE), out = { kinds: [], bad: [] };
+      W.amb.forEach(function (k) {
+        var name = names.find(function (n) { return AMBIENCE[n] === k.K; });
+        out.kinds.push(name);
+        if (!k.pts) return;
+        // the open cells nearest to and furthest from this kind, and the one that hears it most to one side
+        var near = null, far = null, side = null, dn = 99, df = -1, sp = 0;
+        face(-Math.PI / 2);
+        for (var y = 1; y < MH - 1; y++) for (var x = 1; x < MW - 1; x++) {
+          if (tileAt(x, y) !== 0) continue;
+          var d = 99;
+          k.pts.forEach(function (p) { d = Math.min(d, Math.hypot(p.x - x - 0.5, p.y - y - 0.5)); });
+          if (d < dn) { dn = d; near = [x + 0.5, y + 0.5]; }
+          if (d > df) { df = d; far = [x + 0.5, y + 0.5]; }
+          P.x = x + 0.5; P.y = y + 0.5;
+          var h = ambHear(k);
+          if (Math.abs(h.pan) > Math.abs(sp)) { sp = h.pan; side = [x + 0.5, y + 0.5]; }
+        }
+        P.x = near[0]; P.y = near[1]; var ln = ambHear(k).level;
+        P.x = far[0]; P.y = far[1]; var lf = ambHear(k).level;
+        if (!(ln > lf)) out.bad.push(name + ' is no louder up close (' + ln.toFixed(2) + ') than ' + df.toFixed(1) + ' tiles off (' + lf.toFixed(2) + ')');
+        P.x = side[0]; P.y = side[1]; face(Math.PI / 2);
+        var turned = ambHear(k).pan;
+        if (!(Math.abs(sp) > 0.3 && Math.sign(turned) === -Math.sign(sp))) out.bad.push(name + ' does not swap sides when you turn round (' + sp.toFixed(2) + ' then ' + turned.toFixed(2) + ')');
+      });
+      // a few seconds of play: the beds start, one-off sounds play, nothing throws
+      var n = AC.log.length;
+      try { for (var f = 0; f < 300; f++) { AC.currentTime += 1 / 60; ambTick(1 / 60); } } catch (e) { out.bad.push('ambTick threw: ' + e.message); }
+      out.sounds = AC.log.length - n;
+      out.on = ambOn;
+      mode = 'paused'; ambTick(1 / 60); out.offWhenPaused = !ambOn;
+      mode = 'play';
+      return out;
+    })())`));
+    const name = ev('LEVELS[' + i + '].name');
+    check('floor ' + i + ' "' + name + '" makes its own sounds (' + a.kinds.join(', ') + ')',
+      a.kinds.length > 0 && a.sounds > 0 && a.on && a.offWhenPaused && !a.bad.length,
+      a.bad.concat(a.kinds.length ? [] : ['no ambience at all'], a.sounds ? [] : ['nothing played'],
+        a.offWhenPaused ? [] : ['still playing while paused']).join('; '));
   }
 
   done();

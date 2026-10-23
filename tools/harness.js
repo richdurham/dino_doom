@@ -95,12 +95,25 @@ function FakeAudioContext() {
   ac.state = 'running';
   ac.log = [];
   ac.destination = { _name: 'destination', connect: noop2 };
+  /* A real AudioParam throws on a non-finite value or a negative time, and an exponential
+     ramp can't head for zero. These throw the same way, so a NaN pitch fails the checks
+     instead of only failing in a browser. */
+  const finite = function (v, what) { if (!isFinite(v)) throw new TypeError(what + ': non-finite value ' + v); };
+  const when = function (t, what) { finite(t, what); if (t < 0) throw new RangeError(what + ': negative time ' + t); };
   const param = function () {
+    let v = 0;
     return {
-      value: 0,
-      setValueAtTime: function () { return this; },
-      exponentialRampToValueAtTime: function () { return this; },
-      linearRampToValueAtTime: function () { return this; }
+      get value() { return v; },
+      set value(x) { finite(x, 'AudioParam.value'); v = x; },
+      setValueAtTime: function (x, t) { finite(x, 'setValueAtTime'); when(t, 'setValueAtTime'); return this; },
+      linearRampToValueAtTime: function (x, t) { finite(x, 'linearRampToValueAtTime'); when(t, 'linearRampToValueAtTime'); return this; },
+      exponentialRampToValueAtTime: function (x, t) {
+        finite(x, 'exponentialRampToValueAtTime'); when(t, 'exponentialRampToValueAtTime');
+        if (x === 0) throw new RangeError('exponentialRampToValueAtTime: the value cannot be 0');
+        return this;
+      },
+      setTargetAtTime: function (x, t, k) { finite(x, 'setTargetAtTime'); when(t, 'setTargetAtTime'); when(k, 'setTargetAtTime'); return this; },
+      cancelScheduledValues: function (t) { when(t, 'cancelScheduledValues'); return this; }
     };
   };
   const node = function (kind) {
@@ -110,18 +123,24 @@ function FakeAudioContext() {
   ac.createOscillator = function () {
     return Object.assign(node('osc'), {
       type: 'square', frequency: param(), detune: param(),
-      start: function (t) { ac.log.push({ kind: 'osc', t: t, to: this._to }); }, stop: noop2
+      start: function (t) { when(t || 0, 'start'); ac.log.push({ kind: 'osc', t: t, to: this._to }); },
+      stop: function (t) { when(t || 0, 'stop'); }
     });
   };
   ac.createBufferSource = function () {
     return Object.assign(node('src'), {
-      buffer: null, playbackRate: param(),
-      start: function (t) { ac.log.push({ kind: 'noise', t: t, to: this._to }); }, stop: noop2
+      buffer: null, loop: false, playbackRate: param(),
+      start: function (t) { when(t || 0, 'start'); ac.log.push({ kind: 'noise', t: t, to: this._to }); },
+      stop: function (t) { when(t || 0, 'stop'); }
     });
   };
   ac.createBiquadFilter = function () {
     return Object.assign(node('filter'), { type: 'bandpass', frequency: param(), Q: param(), gain: param() });
   };
+  ac.createConvolver = function () { return Object.assign(node('convolver'), { buffer: null, normalize: true }); };
+  ac.createDelay = function () { return Object.assign(node('delay'), { delayTime: param() }); };
+  ac.createStereoPanner = function () { return Object.assign(node('panner'), { pan: param() }); };
+  ac.createWaveShaper = function () { return Object.assign(node('shaper'), { curve: null, oversample: 'none' }); };
   ac.createBuffer = function (ch, len) {
     return { numberOfChannels: ch, length: len, getChannelData: function () { return new Float32Array(len); } };
   };
