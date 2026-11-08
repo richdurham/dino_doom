@@ -17,6 +17,9 @@
  *                and a boss brings in its theme
  *   8. ambience — every floor's tiles make their own sounds, louder up close, on the right side
  *   9. croc    — the Borealosuchus is armoured but for its back, and is slow to turn after a miss
+ *  10. water   — deep water slows you, drops the camera to the surface, heaves the bob, and swishes
+ *  11. mosasaurus — it can't leave the water, can't turn without swimming, swims on past you, and
+ *                never gets stuck on a bank
  *
  * The level check calls getEditorValidation() rather than reimplementing its rules, so it
  * cannot drift from what the in-game editor tells a player.
@@ -74,7 +77,7 @@ console.log('\nsyntax');
   /* ---------------------------------------------------------------- 3. levels */
   console.log('\nlevels (the editor\'s own audit)');
   const count = ev('LEVELS.length');
-  check('all six floors are present', count === 6, count + ' floors');
+  check('all seven floors are present', count === 7, count + ' floors');
   for (let i = 0; i < count; i++) {
     const name = ev('LEVELS[' + i + '].name');
     /* The editor's audit reads row[x] straight, so a row that is short just yields
@@ -85,12 +88,36 @@ console.log('\nsyntax');
     check('floor ' + i + ' "' + name + '" is 24 rows of 24', shape.rows === 24 && !shape.bad.length,
       shape.rows !== 24 ? shape.rows + ' rows' :
         shape.bad.map(function (p) { return 'row ' + p[0] + ' is ' + p[1] + ' wide'; }).join('; '));
-    const v = JSON.parse(ev('JSON.stringify((function(){ var r = getEditorValidation(LEVELS[' + i + '].grid, goalOf(LEVELS[' + i + ']), !!LEVELS[' + i + '].bossKey);' +
+    const v = JSON.parse(ev('JSON.stringify((function(){ var r = getEditorValidation(LEVELS[' + i + '].grid, goalOf(LEVELS[' + i + ']), !!LEVELS[' + i + '].bossKey, LEVELS[' + i + '].floor === "water");' +
       ' return { valid: r.valid, errors: r.errors, warnings: r.warnings, trees: r.treeIssues.size, counts: r.counts }; })())'));
     check('floor ' + i + ' "' + name + '" audits clean', v.valid && v.trees === 0,
       v.errors.concat(v.trees ? [v.trees + ' tree(s) blocking a passage'] : []).join('; '));
     if (v.warnings.length) console.log('        note: ' + v.warnings.join('; '));
   }
+
+  /* Saved floors are kept by position, so a floor added in the middle must not shift them onto the wrong one. */
+  const moved = JSON.parse(ev(`JSON.stringify((function () {
+    var mine = Object.assign({}, LEVELS[3 + 1], { name: 'My Basalt' });
+    var save = [null, null, null, mine, null, null];     // what floor 3 was before Glassmere Lake went in
+    localStorage.setItem('rex_custom_levels_v6', JSON.stringify(save));
+    loadSavedCustomLevels();
+    var out = { lake: LEVELS[3].name, basalt: LEVELS[4].name, old: localStorage.getItem('rex_custom_levels_v6') };
+    LEVELS[4] = JSON.parse(JSON.stringify(FACTORY_LEVELS[4]));
+    saveCustomLevelsToStorage();
+    return out;
+  })())`));
+  check('floors saved before Glassmere Lake stay on their own floors', moved.basalt === 'My Basalt' && moved.lake === 'Glassmere Lake' && moved.old === null,
+    'floor 3 is ' + moved.lake + ', floor 4 is ' + moved.basalt + ', old save left behind: ' + !!moved.old);
+  const puddle = JSON.parse(ev(`JSON.stringify((function () {
+    var g = LEVELS[3].grid.slice();
+    var clean = getEditorValidation(g, 'none', false, false).warnings;
+    var cramped = ['%'.repeat(24), '%P.....................%', '%...~v~................%', '%....................E.%'];
+    for (var y = 4; y < 24; y++) cramped.push('%'.repeat(24));
+    return { lake: clean, cramped: getEditorValidation(cramped, 'none', false, false).warnings };
+  })())`));
+  check('the audit warns about a mosasaurus in a puddle, and not about the lake',
+    puddle.cramped.some(function (w) { return /too little water/.test(w); }) && !puddle.lake.some(function (w) { return /too little water/.test(w); }),
+    'puddle: ' + puddle.cramped.join('; ') + ' / lake: ' + puddle.lake.join('; '));
 
   /* --------------------------------------------------------------- 4. palette */
   /* Tile swatches that look alike make the editor hard to read at a glance. The glyph
@@ -293,13 +320,13 @@ console.log('\nsyntax');
   check('the editor\'s Listen plays the picked track, even with the music off', sch.preview === 'temple' && sch.previewNotes > 0,
     'playing ' + sch.preview + ', ' + sch.previewNotes + ' notes');
   const bt = JSON.parse(ev(`JSON.stringify((function () {
-    loadLevel(4, true); mode = 'play'; P.invT = 1e9;
+    loadLevel(5, true); mode = 'play'; P.invT = 1e9;
     AC.currentTime = 200; musicTick(); var floor = musicTrack;
     var boss = W.things.find(function (t) { return t.isBoss; });
     boss.state = 'chase'; AC.currentTime = 201; musicTick(); var fight = musicTrack;
     scareOff(boss); var quiet = wantedTrack();
     W.time = W.bossQuiet + 0.1; AC.currentTime = 202; musicTick();
-    return { want: LEVELS[4].music, floor: floor, fight: fight, quiet: quiet, back: musicTrack };
+    return { want: LEVELS[5].music, floor: floor, fight: fight, quiet: quiet, back: musicTrack };
   })())`));
   /* A hunt pushes the tempo up, but only on a bar line, and onto the spare echo line (retiming an echo
      that is ringing makes it warble). Between the two marks it holds, so it can't flutter. */
@@ -437,6 +464,227 @@ console.log('\nsyntax');
     croc.stillRecovering && croc.behind === 'chase' && croc.behindHurt === 0,
     'still recovering: ' + croc.stillRecovering + ', state ' + croc.behind + ', player lost ' + croc.behindHurt + ' hp');
   check('but it still bites what\'s in front of it', croc.inFront === 'wind', 'state ' + croc.inFront);
+
+  /* ----------------------------------------------------------------- 10. water */
+  /* A bare field in three bands, dry, shallow and deep, walked along for four seconds each. */
+  console.log('\nwater');
+  const water = JSON.parse(ev(`JSON.stringify((function () {
+    loadLevel(3, true); mode = 'play';
+    W.things = W.things.filter(function (o) { return o.kind !== 'dino' && o.kind !== 'tree' && o.kind !== 'item' && o.kind !== 'decor'; });
+    W.solids = []; W.doors.clear();
+    for (var i = 0; i < MW * MH; i++) {
+      var x = i % MW, y = (i / MW) | 0;
+      W.tiles[i] = x === 0 || y === 0 || x === MW - 1 || y === MH - 1 ? 2 : 0;
+      W.depth[i] = y < 8 ? DRY : y < 16 ? SHALLOW : DEEP;
+    }
+    var swishes = 0, orig = SFX.swish;
+    SFX.swish = function (s) { swishes++; orig(s); };
+    var out = {};
+    var walk = function (name, row, held) {
+      P.x = 2; P.y = row + 0.5; P.ang = 0; P.lookPitch = 0; P.atk = null; shake = 0;
+      keys.KeyW = held;
+      var f;
+      for (f = 0; f < 90; f++) update(1 / 60);              // long enough to settle at this depth
+      P.x = 2; swishes = 0;
+      var lo = 1e9, hi = -1e9, turns = 0, last = 0;
+      for (f = 0; f < 240; f++) {
+        update(1 / 60);
+        var b = P.pitch - P.lookPitch;
+        lo = Math.min(lo, b); hi = Math.max(hi, b);
+        if (f && (b > 0) !== (last > 0)) turns++;
+        last = b;
+      }
+      var px = (P.dirX * 0.6 + 0.5);
+      renderWorld({ x: P.x, y: P.y, dirX: P.dirX, dirY: P.dirY, planeX: P.planeX, planeY: P.planeY, pitch: 0, eyeH: P.eye });
+      var pixel = buf[(RH - 1) * RW + (RW >> 1)], floorTex = W.floorByDepth.findIndex(function (t) { return t.shades.some(function (b) { return b[0] === pixel; }); });
+      out[name] = { speed: (P.x - 2) / 4, eye: P.eye, bob: (hi - lo) / 2, turns: turns, swishes: swishes, floorTex: floorTex, swim: P.swim };
+      keys.KeyW = false;
+    };
+    walk('dry', 4, true); walk('shallow', 12, true); walk('deep', 20, true); walk('treading', 20, false);
+    SFX.swish = orig;
+    return out;
+  })())`));
+  check('shallow water doesn\'t slow you down', Math.abs(water.shallow.speed - water.dry.speed) < 0.05, water.shallow.speed + ' against ' + water.dry.speed);
+  check('deep water halves your speed', Math.abs(water.deep.speed - water.dry.speed / 2) < 0.05, water.deep.speed + ' against ' + water.dry.speed);
+  check('the camera only drops in the deep, to just above the surface', water.dry.eye === 0.5 && water.shallow.eye === 0.5 && water.deep.eye < 0.22,
+    'eye height ' + water.dry.eye + ' dry, ' + water.shallow.eye + ' shallow, ' + water.deep.eye + ' deep');
+  check('swimming bobs bigger', water.deep.bob > water.dry.bob * 2.5, 'amplitude ' + water.deep.bob + ' against ' + water.dry.bob);
+  check('and slower', water.deep.turns < water.dry.turns * 0.6, water.deep.turns + ' zero crossings against ' + water.dry.turns);
+  check('every stroke swishes', water.deep.swishes >= 4 && water.deep.swishes <= 9, water.deep.swishes + ' swishes in 4 s');
+  check('but not on foot, in the shallows or treading water', water.dry.swishes === 0 && water.shallow.swishes === 0 && water.treading.swishes === 0,
+    water.dry.swishes + ' dry, ' + water.shallow.swishes + ' shallow, ' + water.treading.swishes + ' treading water');
+  check('each band draws its own floor', water.dry.floorTex === 0 && water.shallow.floorTex === 1 && water.deep.floorTex === 2,
+    'dry ' + water.dry.floorTex + ', shallow ' + water.shallow.floorTex + ', deep ' + water.deep.floorTex);
+
+  /* ------------------------------------------------------------ 11. mosasaurus */
+  /* One mosasaurus, driven directly so the player stays where the check put them. The pass and the turn are
+     tested in open water; getting stuck is tested in the awkward shapes a floor can have. */
+  console.log('\nmosasaurus');
+  const mosa = JSON.parse(ev(`JSON.stringify((function () {
+    var FRAME = 1 / 60, out = {};
+    var sea = function () {
+      loadLevel(3, true); mode = 'play';
+      W.things = W.things.filter(function (o) { return o.kind !== 'dino' && o.kind !== 'tree'; });
+      W.solids = []; W.doors.clear();
+      for (var i = 0; i < MW * MH; i++) {
+        var x = i % MW, y = (i / MW) | 0;
+        W.tiles[i] = x === 0 || y === 0 || x === MW - 1 || y === MH - 1 ? 2 : 0;
+        W.depth[i] = DEEP;
+      }
+      spawnDino(W, 'mosasaurus', 4.5, 12.5);
+      var t = W.things[W.things.length - 1];
+      t.state = 'chase'; t.angle = 0;
+      return t;
+    };
+
+    // a pass at someone who stays put
+    var t = sea();
+    P.x = 9; P.y = 12.5; P.hp = P.maxhp; P.invT = 0;
+    t.coil = MOSA_TELL;
+    var i, hits = 0, slowest = 9, px = t.x, py = t.y, hp = P.hp, passedAt = -1;
+    for (i = 0; i < 180 && !(i > 30 && !(t.lunging > 0) && !(t.coil > 0)); i++) {
+      updateDino(t, FRAME);
+      slowest = Math.min(slowest, Math.hypot(t.x - px, t.y - py) / FRAME); px = t.x; py = t.y;
+      if (P.hp < hp) { hits++; hp = P.hp; }
+      if (P.invT > 0) P.invT -= FRAME;
+    }
+    out.hits = hits; out.slowest = slowest; out.beyond = t.x - P.x; out.recovering = t.recover > 0;
+
+    // it carries on swimming after the pass
+    px = t.x; py = t.y;
+    for (i = 0; i < 40; i++) updateDino(t, FRAME);
+    out.after = Math.hypot(t.x - px, t.y - py);
+
+    // the same pass, but the player swims out of the line when the flash starts
+    t = sea();
+    P.x = 8.5; P.y = 12.5; P.hp = P.maxhp; P.invT = 0;
+    t.coil = MOSA_TELL;
+    for (i = 0; i < 180 && !(i > 30 && !(t.lunging > 0) && !(t.coil > 0)); i++) { P.y += 1.575 * FRAME; updateDino(t, FRAME); }
+    out.dodged = P.maxhp - P.hp;
+
+    // a claw during the flash knocks it off, and it swims away
+    t = sea();
+    P.x = 6; P.y = 12.5; P.hp = P.maxhp; P.invT = 1e9;
+    t.coil = MOSA_TELL;
+    updateDino(t, FRAME);
+    hurtDino(t, 24, 'claw', false);
+    px = t.x; py = t.y;
+    updateDino(t, FRAME);
+    out.clawed = { coil: t.coil, lunging: t.lunging || 0, state: t.state, moved: Math.hypot(t.x - px, t.y - py) };
+
+    // its heading is bought with distance, in open water
+    t = sea();
+    t.x = 12; t.y = 12; P.x = 12; P.y = 20; P.invT = 1e9;
+    var worst = 0;
+    for (i = 0; i < 120; i++) {
+      var a0 = t.angle, x0 = t.x, y0 = t.y;
+      swimOn(t, a0 + Math.PI, t.def.speed, MOSA_TURN, FRAME);
+      worst = Math.max(worst, Math.abs(wrapAngle(t.angle - a0)) / (Math.hypot(t.x - x0, t.y - y0) || 1e-9));
+    }
+    out.turnPerTile = worst; out.turnLimit = MOSA_TURN;
+
+    // a land dino out of its depth wades, at a little over half speed
+    var pace = function (depth) {
+      var w = sea();
+      w.alive = false;
+      spawnDino(W, 'borealosuchus', 4.5, 12.5);
+      var c = W.things[W.things.length - 1];
+      for (var k = 0; k < MW * MH; k++) if (W.tiles[k] === 0) W.depth[k] = depth;
+      c.state = 'chase'; c.angle = 0; P.x = 20; P.y = 12.5; P.invT = 1e9;
+      for (var f = 0; f < 60; f++) updateDino(c, FRAME);
+      return { dist: c.x - 4.5, sink: c.sink };
+    };
+    out.dry = pace(DRY); out.wade = pace(DEEP);
+
+    // the shapes it could get stuck in: 40 s each, called from a spot beyond each corner of the map in turn
+    var shapes = {
+      'a small pond': ['%..P...................%', '%...DDDD...............%', '%...DvDD...............%', '%...DDDD...............%', '%...DDDD...............%'],
+      'a one-wide channel': ['%..P...................%', '%......................%', '%.vDDDDDDDDDDDDDDDDDDD.%', '%......................%'],
+      'a dead-end bay': ['%..P...................%', '%.DDDDDDDD.............%', '%.DDvDDDDDDDDDDDDDDD...%', '%.DDDDDDDD.............%'],
+      'an L-shaped lake': ['%..P...................%', '%.DDDDDDDDDDDD.........%', '%.DvDDDDDDDDDD.........%', '%.DDDDDDDDDDDD.........%', '%.DDD..................%', '%.DDD..................%', '%.DDD..................%', '%.DDDDDDDDDDDDDDD......%', '%.DDDDDDDDDDDDDDD......%'],
+      'the shallows': ['%..P...................%', '%.~~~~~~~~~~~~~~~~~~~~.%', '%.~~~~~~~~v~~~~~~~~~~~.%', '%.~~~~~~~~~~~~~~~~~~~~.%'],
+      'a swamp full of trees': ['%..P....T...T...T......%', '%...T.......T.....T....%', '%.T.......v........T...%', '%.....T.....T...T......%', '%..T....T..........T...%', '%......................%']
+    };
+    var spots = [[2.5, 1.5], [20.5, 1.5], [22.5, 9.5], [2.5, 22.5], [12.5, 1.5]];
+    var roam = function (t, secs) {
+      var longest = 0, still = 0, off = 0, path = 0, grid = {}, px = t.x, py = t.y, winStart = 0, winPath = 0, worstWin = 1e9;
+      for (var f = 0; f < secs * 60; f++) {
+        var sp = spots[(f / 480 | 0) % spots.length];
+        P.x = sp[0]; P.y = sp[1]; P.invT = 1e9;
+        updateDino(t, FRAME);
+        if (W.mosaHold > 0) W.mosaHold -= FRAME;
+        var m = Math.hypot(t.x - px, t.y - py);
+        px = t.x; py = t.y;
+        path += m; winPath += m;
+        if (f - winStart >= 180) { worstWin = Math.min(worstWin, winPath); winStart = f; winPath = 0; }
+        still = m < 1e-4 ? still + FRAME : 0;
+        if (still > longest) longest = still;
+        grid[(t.y | 0) * MW + (t.x | 0)] = 1;
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c) {
+          var cx = t.x + c[0] * MOSA_R * 0.98, cy = t.y + c[1] * MOSA_R * 0.98;
+          if (solidAt(cx, cy) || depthAt(cx, cy) === DRY) off++;
+        });
+      }
+      return { longest: longest, off: off, path: path, cells: Object.keys(grid).length, worstWin: worstWin };
+    };
+    out.shapes = {};
+    var saved = LEVELS[3];
+    Object.keys(shapes).forEach(function (name) {
+      var rows = ['%'.repeat(24)].concat(shapes[name]);
+      while (rows.length < 24) rows.push('%'.repeat(24));
+      LEVELS[3] = Object.assign({}, saved, { grid: rows, floor: /swamp/.test(name) ? 'water' : 'grass' });
+      loadLevel(3, true); mode = 'play';
+      var m = W.things.filter(function (o) { return o.type === 'mosasaurus'; })[0];
+      m.state = 'chase';
+      out.shapes[name] = roam(m, 40);
+    });
+    LEVELS[3] = saved;
+
+    // and the real floor, all of them at once, with the player on the bank and then out in the deep
+    loadLevel(3, true); mode = 'play';
+    W.things.forEach(function (o) { if (o.kind === 'dino' && o.type !== 'mosasaurus') o.alive = false; if (o.type === 'mosasaurus') o.state = 'chase'; });
+    var all = W.things.filter(function (o) { return o.type === 'mosasaurus'; });
+    var bad = 0, frozen = 0, last = all.map(function (o) { return [o.x, o.y, 0]; }), worst2 = 0;
+    for (var f = 0; f < 60 * 90; f++) {
+      var a = f * 0.004;
+      P.x = f < 60 * 45 ? 4.5 : 10 + Math.cos(a) * 5; P.y = f < 60 * 45 ? 2.5 : 6.5 + Math.sin(a * 1.3) * 2;
+      P.hp = P.maxhp; P.invT = 1e9;
+      update(1 / 60);
+      mode = 'play';
+      for (var j = 0; j < all.length; j++) {
+        var o = all[j];
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (c) {
+          var cx = o.x + c[0] * MOSA_R * 0.98, cy = o.y + c[1] * MOSA_R * 0.98;
+          if (solidAt(cx, cy) || depthAt(cx, cy) === DRY) bad++;
+        });
+        if (Math.hypot(o.x - last[j][0], o.y - last[j][1]) < 1e-4) { last[j][2] += FRAME; worst2 = Math.max(worst2, last[j][2]); } else last[j][2] = 0;
+        last[j][0] = o.x; last[j][1] = o.y;
+      }
+    }
+    out.lake = { off: bad, longest: worst2 };
+    return out;
+  })())`));
+  // it may legitimately stop to pivot, but one full turn is the most that can ever take
+  const MAX_PIVOT = ev('TAU / MOSA_SPIN + 0.05');
+  check('a pass bites someone who stays put, once', mosa.hits === 1, mosa.hits + ' bites');
+  check('it never stops during a pass', mosa.slowest > 1, 'slowest ' + mosa.slowest + ' tiles a second');
+  check('it carries on well past you', mosa.beyond > 2, 'ended ' + mosa.beyond + ' tiles beyond the player');
+  check('and is still swimming afterwards, coming round', mosa.recovering && mosa.after > 1, 'recovering: ' + mosa.recovering + ', swam ' + mosa.after + ' tiles in 2/3 s');
+  check('you can swim out of its line once it flashes', mosa.dodged === 0, 'lost ' + mosa.dodged + ' hp');
+  check('a claw during the flash knocks it off, and it swims away', mosa.clawed.coil <= 0 && mosa.clawed.lunging <= 0 && mosa.clawed.state === 'chase' && mosa.clawed.moved > 0,
+    JSON.stringify(mosa.clawed));
+  check('it can\'t turn without swimming', mosa.turnPerTile <= mosa.turnLimit + 1e-6, mosa.turnPerTile + ' radians per tile, limit ' + mosa.turnLimit);
+  check('a land dino wades through the deep at about half speed, up to its chest',
+    Math.abs(mosa.wade.dist / mosa.dry.dist - 0.55) < 0.05 && mosa.wade.sink > 0.2 && mosa.dry.sink === 0,
+    'covered ' + mosa.dry.dist + ' dry and ' + mosa.wade.dist + ' deep, sinking ' + mosa.wade.sink);
+  Object.keys(mosa.shapes).forEach(function (name) {
+    const r = mosa.shapes[name];
+    check('in ' + name + ' it stays in the water and keeps moving (' + r.path.toFixed(0) + ' tiles over ' + r.cells + ' cells)',
+      r.off === 0 && r.longest < MAX_PIVOT && r.worstWin > 0.5 && r.cells >= 5,
+      'off the water ' + r.off + ' times, stopped for up to ' + r.longest.toFixed(2) + ' s, least movement in any 3 s ' + r.worstWin.toFixed(2) + ', ' + r.cells + ' cells');
+  });
+  check('on Glassmere Lake none of them leave the water or get stuck', mosa.lake.off === 0 && mosa.lake.longest < MAX_PIVOT,
+    'off the water ' + mosa.lake.off + ' times, stopped for up to ' + mosa.lake.longest.toFixed(2) + ' s');
 
   done();
 })().catch(function (e) {
