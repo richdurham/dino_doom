@@ -1,6 +1,6 @@
 # Rex Rumble
 
-**You are a T. rex with very short arms, and six floors of the prehistoric world want you gone.**
+**You are a T. rex with very short arms, and seven floors of the prehistoric world want you gone.**
 
 ### [Play it in your browser](https://richdurham.github.io/dino_doom/)
 
@@ -19,6 +19,7 @@ Every dino flashes **red** while it winds up an attack. Step out of its line, th
 - **Claw** is fast and wide. It hits up to three dinos at once, and lands early enough to knock a dino off a strike it has already started.
 - **Bite** is slow and roots you to the spot, but it does **double damage** to a dino already committed to its own move. Biting into the red flash beats swinging on reflex.
 - **Roar** freezes every dino near you. You carry up to three; stars give you more.
+- **Deep water** is the dark blue. Out of your depth your eyes are at the surface and you swim at half pace, so only go in when you must.
 - **Golden eggs** are points, and each floor hides most of them: in thickets, in alcoves off the main path, or under guard. **Meat** heals you. The **green footprint** is the way out, though on some floors it only appears once the boss is beaten.
 
 | Action | Keyboard and mouse | Touch (phone and tablet) |
@@ -58,6 +59,10 @@ Every dino is drawn from the front, the side and behind, so you can tell at a gl
 <td><b>Borealosuchus</b><br>A crocodilian lurking in the bayou, with heavy jaws and armoured scales that are softest from behind. It coils before it snaps forward, so there is always a beat to step aside, and a miss leaves it slow to come round.</td>
 </tr>
 <tr>
+<td align="center"><img src="media/roster/mosasaurus.gif" width="150" alt="Mosasaurus turning around"></td>
+<td><b>Mosasaurus</b><br>A huge sea lizard that lives in the lake and can't leave it. It flashes red and then swims straight through where you are at full speed, carrying on well past you. It can only turn by swimming forward, so once it has gone by it needs a long arc to come back round: that's your moment to move, or to get out of the water.</td>
+</tr>
+<tr>
 <td align="center"><img src="media/roster/carnotaurus.gif" width="150" alt="Carnotaurus turning around"></td>
 <td><b>Carnotaurus</b> (sub-boss)<br>The horned guardian of the bayou's bone gate. It rears up with a bellow and keeps aiming for half a second before it commits to a charge. Break the line in that window and it thunders past.</td>
 </tr>
@@ -73,7 +78,7 @@ Every dino is drawn from the front, the side and behind, so you can tell at a gl
 
 ---
 
-## Six floors
+## Seven floors
 
 <table>
 <tr>
@@ -82,11 +87,15 @@ Every dino is drawn from the front, the side and behind, so you can tell at a gl
 </tr>
 <tr>
 <td><img src="media/biomes/biome-murky-bayou.jpg" alt="Murky Bayou"><br><b>Murky Bayou</b><br>A cypress swamp with a bone gate, a fossil key, and the Carnotaurus standing guard. The way out only appears once it falls.</td>
-<td><img src="media/biomes/biome-bubbling-basalt.jpg" alt="Bubbling Basalt"><br><b>Bubbling Basalt</b><br>Volcanic caverns, ash floors, glowing lava walls, and a raptor pack that likes the heat.</td>
+<td><img src="media/biomes/biome-glassmere-lake.jpg" alt="Glassmere Lake"><br><b>Glassmere Lake</b><br>A ring of pines, grass that winds between the water, and mosasaurs circling in the deep. The last stretch to the exit is a swim.</td>
 </tr>
 <tr>
+<td><img src="media/biomes/biome-bubbling-basalt.jpg" alt="Bubbling Basalt"><br><b>Bubbling Basalt</b><br>Volcanic caverns, ash floors, glowing lava walls, and a raptor pack that likes the heat.</td>
 <td><img src="media/biomes/biome-bone-throne.jpg" alt="The Bone Throne"><br><b>The Bone Throne</b><br>A golden temple arena, and the showdown with the Bone King.</td>
+</tr>
+<tr>
 <td><img src="media/biomes/biome-iron-forge.jpg" alt="The Iron Forge"><br><b>The Iron Forge</b><br>Riveted iron, steel floors and lava pillars to hide behind. The exit is sealed behind a key gate, and the Robo-Spinosaurus carries the key.</td>
+<td></td>
 </tr>
 </table>
 
@@ -96,14 +105,14 @@ Every dino is drawn from the front, the side and behind, so you can tell at a gl
 
 All of it is synthesized live in your browser: there are no music files.
 
-- **Every floor has its own soundtrack**, and every track builds while dinos are actually hunting you: new parts come in, and once the hunt is properly on the track speeds up a little. On the nature tracks the birds and frogs fall silent when something big is near.
+- **Every floor has a soundtrack**, and every track builds while dinos are actually hunting you: new parts come in, and once the hunt is properly on the track speeds up a little. On the nature tracks the birds and frogs fall silent when something big is near.
 - **A boss theme** takes over when a boss notices you, and builds as the boss weakens. Each boss adds its own colour: congas for the Carnotaurus, a temple bell and choir for the Bone King, an anvil and steam for the Robo-Spinosaurus. When it falls, there are a few seconds of quiet before the floor's own music comes back.
 - **The places make their own sounds.** Lava roars and bubbles, iron plating hums and clanks, mud walls gurgle and hide frogs, trees and vines rustle, gold walls ring faintly, and water laps around you. Each sound gets louder the closer you are, comes from the side its source is on, and is muffled by walls in between.
 
 | Track | Mood | Plays on |
 | :--- | :--- | :--- |
 | **Jungle Drums** | Congas, clave and a marimba under the canopy, a wooden flute, birds overhead | Verdant Canopy |
-| **Misty Ferns** | Ambient: slow pads, a kalimba wandering in the echo, wind, crickets, something huge calling far off | Fernback Ruins |
+| **Misty Ferns** | Ambient: slow pads, a kalimba wandering in the echo, wind, crickets, something huge calling far off | Fernback Ruins and Glassmere Lake |
 | **Bayou Haze** | A slow swampy shuffle: upright bass, a dobro on the blues scale, bullfrogs and cicadas | Murky Bayou |
 | **Magma Chamber** | A deep rumble, taiko drums, a distorted riff, bubbling lava and steam | Bubbling Basalt |
 | **Sunken Temple** | Ancient magic: a droning tanpura, temple bells, a ritual drum, a choir and a snake-charmer reed | The Bone Throne |
@@ -120,7 +129,7 @@ All of it is synthesized live in your browser: there are no music files.
 
 The level editor is built into the game. Open it from the title screen, or press `Esc` while playing and choose **Edit this floor**.
 
-- **Paint** walls, doors, trees, dinos, bosses, eggs, keys and pickups onto the 24×24 grid, with a mouse or a finger.
+- **Paint** walls, doors, trees, water, deep water, dinos, bosses, eggs, keys and pickups onto the 24×24 grid, with a mouse or a finger.
 - **Set the mood**: floor and ceiling textures (grass, water, ash, temple tile, steel; open sky, forest canopy, cave or gold), the ceiling height, and the floor's music. Press **Listen** to hear a track right there: it plays calm for 20 seconds, then the way it sounds when dinos are hunting you. The tiles bring their own sounds with them, so painting lava gives you lava to hear.
 - **Choose the exit's goal**: the footprint can be there from the start, or appear only once you beat the boss, scare off every dino, or find every egg. Tick **Boss drops key** and the last boss drops the key for the floor's key gates.
 - **It checks your work** as you paint: a tree plugging a one-tile passage, an exit you can't reach, a walled-in boss, an unreachable egg, or a key locked behind its own gate.
@@ -144,7 +153,7 @@ The game has no dependencies, and neither do its checks:
 node tools/check.js
 ```
 
-It parses every inline script, boots the game headlessly (`tools/harness.js` stubs the DOM, the 2D canvas and Web Audio), runs **the in-game editor's own audit** over all six shipped floors, and plays 900 frames on each one with every dino awake, watching for exceptions, NaNs, and anything clipping out of the grid. It also plays every soundtrack calm and hunted (the Web Audio stub throws on a non-finite pitch or a ramp to zero, the way a browser does), checks the tempo only changes on a bar line, checks a boss brings its theme in and hands back to the floor's, and checks each floor's sounds are louder up close and swap sides when you turn round.
+It parses every inline script, boots the game headlessly (`tools/harness.js` stubs the DOM, the 2D canvas and Web Audio), runs **the in-game editor's own audit** over all seven shipped floors, and plays 900 frames on each one with every dino awake, watching for exceptions, NaNs, and anything clipping out of the grid. It also plays every soundtrack calm and hunted (the Web Audio stub throws on a non-finite pitch or a ramp to zero, the way a browser does), checks the tempo only changes on a bar line, checks a boss brings its theme in and hands back to the floor's, and checks each floor's sounds are louder up close and swap sides when you turn round. It also walks the bands of dry, shallow and deep water, and runs a mosasaurus round a pond, a one-wide channel, a dead-end bay and the real lake, checking it never leaves the water or gets stuck.
 
 The floor audit calls `getEditorValidation()` rather than reimplementing its rules, so it can't drift from what the editor tells you when you build a level yourself. GitHub Actions runs the same command on every pull request.
 
