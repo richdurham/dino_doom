@@ -16,6 +16,7 @@
  *   7. music   — every floor names a real track, every track plays without a bad note,
  *                and a boss brings in its theme
  *   8. ambience — every floor's tiles make their own sounds, louder up close, on the right side
+ *   9. croc    — the Borealosuchus is armoured but for its back, and is slow to turn after a miss
  *
  * The level check calls getEditorValidation() rather than reimplementing its rules, so it
  * cannot drift from what the in-game editor tells a player.
@@ -377,6 +378,65 @@ console.log('\nsyntax');
       a.bad.concat(a.kinds.length ? [] : ['no ambience at all'], a.sounds ? [] : ['nothing played'],
         a.offWhenPaused ? [] : ['still playing while paused']).join('; '));
   }
+
+  /* ------------------------------------------------------------------ 9. croc */
+  /* The Borealosuchus takes 35% off everywhere but its rear, and a lunge that misses leaves it slow
+     to come round, which is how you reach that rear. The Godot port pins the same eight things.
+     Open ground and no other dinos, so the lunge can't hit a wall; calling updateDino directly
+     keeps the player where the check put them. */
+  console.log('\ncroc');
+  const croc = JSON.parse(ev(`JSON.stringify((function () {
+    loadLevel(2, true); mode = 'play';
+    var t = W.things.find(function (o) { return o.kind === 'dino' && o.type === 'borealosuchus'; });
+    W.things = W.things.filter(function (o) { return o === t || o.kind !== 'dino'; });
+    for (var y = 1; y < MH - 1; y++) for (var x = 1; x < MW - 1; x++) W.tiles[y * MW + x] = 0;
+    W.solids = [];
+    W.doors.clear();
+    P.invT = 0; P.hp = P.maxhp;
+    var FRAME = 1 / 60, i;
+    var place = function (ang) { t.x = 12; t.y = 12; t.angle = ang; t.state = 'chase'; t.t = 0; P.x = 15; P.y = 12; };
+    var clawFacing = function (ang) { place(ang); var hp = t.hp; hurtDino(t, 24, 'claw', false); return hp - t.hp; };
+    var out = { front: clawFacing(0), side: clawFacing(Math.PI / 2), back: clawFacing(Math.PI) };
+
+    // the lunge, straight at the player
+    place(0);
+    t.coil = 0.01;
+    updateDino(t, FRAME);
+    out.lunged = t.lunging > 0;
+
+    // the player steps aside, so it runs out without reaching them
+    P.y += 2.2;
+    for (i = 0; t.lunging > 0 && i < 120; i++) updateDino(t, FRAME);
+    out.recover = t.recover; out.afterMiss = t.state;
+
+    var ang = t.angle, cx = t.x, cy = t.y;
+    for (i = 0; i < 30; i++) updateDino(t, FRAME);
+    out.turned = Math.abs(t.angle - ang); out.moved = Math.hypot(t.x - cx, t.y - cy);
+
+    // one tile behind it, well within reach, but not in front of its jaws
+    var hp = P.hp;
+    P.x = t.x - Math.cos(t.angle); P.y = t.y - Math.sin(t.angle);
+    for (i = 0; i < 12; i++) updateDino(t, FRAME);
+    out.behind = t.state; out.behindHurt = hp - P.hp; out.stillRecovering = t.recover > 0;
+
+    // one tile in front of its nose
+    P.x = t.x + Math.cos(t.angle); P.y = t.y + Math.sin(t.angle);
+    updateDino(t, FRAME);
+    out.inFront = t.state;
+    return out;
+  })())`));
+  check('its scales take 35% off from the front', Math.abs(croc.front - 15.6) < 1e-6, 'a 24 claw did ' + croc.front);
+  check('and from the side', Math.abs(croc.side - 15.6) < 1e-6, 'a 24 claw did ' + croc.side);
+  check('but from behind it takes the full hit', Math.abs(croc.back - 24) < 1e-6, 'a 24 claw did ' + croc.back);
+  check('a coiled croc lunges', croc.lunged);
+  check('a missed lunge leaves it recovering', croc.recover > 0 && croc.afterMiss === 'chase',
+    'recover ' + croc.recover + ', state ' + croc.afterMiss);
+  check('while recovering it barely turns and stays put', croc.turned < 0.35 && croc.moved < 0.001,
+    'turned ' + croc.turned + ' rad, moved ' + croc.moved + ' over 0.5 s');
+  check('while recovering it can\'t bite what\'s behind it',
+    croc.stillRecovering && croc.behind === 'chase' && croc.behindHurt === 0,
+    'still recovering: ' + croc.stillRecovering + ', state ' + croc.behind + ', player lost ' + croc.behindHurt + ' hp');
+  check('but it still bites what\'s in front of it', croc.inFront === 'wind', 'state ' + croc.inFront);
 
   done();
 })().catch(function (e) {

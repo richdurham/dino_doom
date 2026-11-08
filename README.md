@@ -55,7 +55,7 @@ Every dino is drawn from the front, the side and behind, so you can tell at a gl
 </tr>
 <tr>
 <td align="center"><img src="media/roster/borealosuchus.gif" width="150" alt="Borealosuchus turning around"></td>
-<td><b>Borealosuchus</b><br>A crocodilian lurking in the bayou, with heavy jaws and armoured scales that are softest from behind. It coils before it snaps forward, so there is always a beat to step aside.</td>
+<td><b>Borealosuchus</b><br>A crocodilian lurking in the bayou, with heavy jaws and armoured scales that are softest from behind. It coils before it snaps forward, so there is always a beat to step aside, and a miss leaves it slow to come round.</td>
 </tr>
 <tr>
 <td align="center"><img src="media/roster/carnotaurus.gif" width="150" alt="Carnotaurus turning around"></td>
