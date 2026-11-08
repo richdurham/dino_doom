@@ -2539,7 +2539,7 @@ function spawnDino(w, type, x, y, isBoss) {
     isBoss: !!isBoss,
     // wind-up bookkeeping: `tell` drives the red pulse, `intCd` stops claws chaining staggers
     tell: 0, intCd: 0,
-    crouch: 0, leap: 0, backoff: 0, coil: 0, rearing: 0,
+    crouch: 0, leap: 0, backoff: 0, coil: 0, recover: 0, rearing: 0,
     flank: type === 'raptor' ? RAPTOR_FLANK[nth % RAPTOR_FLANK.length] : 0
   });
   w.dinosTotal++;
@@ -4323,7 +4323,7 @@ function hurtDino(t, dmg, kind, punish) {
     let diff = Math.atan2(toPlayerY, toPlayerX) - (t.angle || 0);
     while (diff <= -Math.PI) diff += TAU;
     while (diff > Math.PI) diff -= TAU;
-    if (Math.abs(diff) > Math.PI * 0.65) finalDmg = dmg * 0.65;
+    if (Math.abs(diff) <= Math.PI * 0.65) finalDmg = dmg * 0.65;   // scales all round, softest from behind
   }
   t.hp -= finalDmg;
   t.flash = 0.16;
@@ -4467,6 +4467,12 @@ function dinoCommitted(t) {
     t.roarT > 0 || t.breath > 0;
 }
 
+/* A croc that misses its lunge is slow to come round, which is the moment to reach its soft back.
+   Its jaws are still quick, so this only pays off from behind. */
+const CROC_RECOVER = 1.2;           // seconds: about one clean hit for a player who stepped aside
+const CROC_RECOVER_TURN = 0.25;     // of its usual turning speed
+const CROC_JAWS = Math.PI * 0.3;    // how far off its nose it can still snap while recovering
+
 function updateDino(t, dt) {
   if (t.state === 'poof') {
     t.t += dt;
@@ -4484,7 +4490,7 @@ function updateDino(t, dt) {
 
   if (t.state === 'stun') {
     t.swoop = 0; t.tell = 0;
-    t.crouch = 0; t.leap = 0; t.backoff = 0; t.coil = 0; t.rearing = 0;
+    t.crouch = 0; t.leap = 0; t.backoff = 0; t.coil = 0; t.recover = 0; t.rearing = 0;
     t.inhale = 0; t.roarT = 0; t.breath = 0; t.aim = 0;
     t.stun -= dt; t.frame = 3;
     if (t.stun <= 0) { t.state = 'chase'; t.t = 0; }
@@ -4650,6 +4656,16 @@ function updateDino(t, dt) {
   // Borealosuchus snap lunge, coiled first so you get a beat to move out of the line
   if (t.type === 'borealosuchus') {
     t.vOff = 0.22;
+    if (t.recover > 0) {
+      t.recover -= dt;
+      t.frame = 0;                  // legs still: the tell
+      if (dist <= d.reach && Math.abs(da) < CROC_JAWS && losClear(t.x, t.y, P.x, P.y)) {
+        t.recover = 0;              // you're in front of it: fall through to the usual bite below
+      } else {
+        t.angle += Math.sign(da) * Math.min(Math.abs(da), turnRate * CROC_RECOVER_TURN * dt);
+        return;
+      }
+    }
     if (!(t.lunging > 0) && !(t.coil > 0) && dist > 1.8 && dist < 5.5 &&
       Math.random() < dt * 2.2 && losClear(t.x, t.y, P.x, P.y)) {
       t.coil = 0.32;
@@ -4679,6 +4695,9 @@ function updateDino(t, dt) {
       if (dist <= d.reach) {
         t.state = 'wind'; t.t = d.wind * 0.7;
         t.lunging = 0;
+      } else if (t.lunging <= 0) {
+        t.recover = CROC_RECOVER;
+        tip('crocBack', 'It\'s slow to turn after a miss — get round to its soft back!');
       }
       return;
     }
