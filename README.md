@@ -87,7 +87,7 @@ Every dino is drawn from the front, the side and behind, so you can tell at a gl
 </tr>
 <tr>
 <td><img src="media/biomes/biome-murky-bayou.jpg" alt="Murky Bayou"><br><b>Murky Bayou</b><br>A cypress swamp with a bone gate, a fossil key, and the Carnotaurus standing guard. The way out only appears once it falls.</td>
-<td><img src="media/biomes/biome-glassmere-lake.jpg" alt="Glassmere Lake"><br><b>Glassmere Lake</b><br>A ring of pines, grass that winds between the water, and mosasaurs circling in the deep. The last stretch to the exit is a swim.</td>
+<td><img src="media/biomes/biome-glassmere-lake.jpg" alt="Glassmere Lake"><br><b>Glassmere Lake</b><br>A ring of pines, grass that winds between the water, and mosasaurs circling in the deep. You can wade to the exit, but one egg sits out where only a swim will reach it.</td>
 </tr>
 <tr>
 <td><img src="media/biomes/biome-bubbling-basalt.jpg" alt="Bubbling Basalt"><br><b>Bubbling Basalt</b><br>Volcanic caverns, ash floors, glowing lava walls, and a raptor pack that likes the heat.</td>
